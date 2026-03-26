@@ -1,8 +1,7 @@
-@if (!isLoginRoute()) {
-  <div class="shell" [class.sidebar-collapsed]="sidebarCollapsed()">
+<div class="shell" [class.sidebar-collapsed]="sidebarCollapsed()">
   <aside class="sidebar" aria-label="Navegación principal">
     <div class="brand">
-      <a class="brand-link" href="/" routerLink="/">
+      <a class="brand-link" href="/dashboard" routerLink="/dashboard">
         <img src="/logo-rifa.png" alt="Rifas Luxury RD" width="200" height="120" />
       </a>
     </div>
@@ -127,13 +126,34 @@
           </button>
           <span class="notify-badge" aria-hidden="true">3</span>
         </div>
-        <button type="button" class="user-pill" (click)="openLogoutModal()">
-          <div class="user-meta">
-            <div class="user-name">Jose Noboa</div>
-            <div class="user-role">admin</div>
-          </div>
-          <div class="avatar" aria-hidden="true">JN</div>
-        </button>
+        <div class="user-menu" (click)="$event.stopPropagation()">
+          <button
+            type="button"
+            class="user-pill"
+            (click)="toggleUserMenu()"
+            [attr.aria-expanded]="userMenuOpen()"
+            aria-haspopup="menu"
+          >
+            <div class="user-meta">
+              <div class="user-name">Jose Noboa</div>
+              <div class="user-role">admin</div>
+            </div>
+            <div class="avatar" aria-hidden="true">JN</div>
+          </button>
+
+          @if (userMenuOpen()) {
+            <div class="user-dropdown" role="menu" aria-label="Menú de usuario">
+              <button type="button" class="ud-item danger" role="menuitem" (click)="openLogoutModal()">
+                <svg class="ud-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <path d="M16 17l5-5-5-5" />
+                  <path d="M21 12H9" />
+                </svg>
+                Salir
+              </button>
+            </div>
+          }
+        </div>
       </div>
     </header>
 
@@ -306,11 +326,16 @@
       <div class="modal-b" id="logout-desc">¿Estás seguro que deseas salir de tu cuenta?</div>
       <div class="modal-f">
         <button type="button" class="btn btn-ghost" (click)="closeLogoutModal()">Cancelar</button>
-        <button type="button" class="btn btn-danger" (click)="confirmLogout()">Salir</button>
+        <button type="button" class="btn btn-danger" (click)="confirmLogout()" [disabled]="isLoggingOut">
+          @if (isLoggingOut) {
+            <app-spinner [size]="16" [stroke]="3" label="Saliendo" />
+            Saliendo...
+          } @else {
+            Salir
+          }
+        </button>
       </div>
     </div>
   </div>
 }
-}
 
-<router-outlet />

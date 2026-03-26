@@ -1,0 +1,11 @@
+<span
+  class="spinner"
+  [style.width.px]="size()"
+  [style.height.px]="size()"
+  [style.--spin-stroke]="stroke() + 'px'"
+  role="status"
+  [attr.aria-label]="label()"
+>
+  <span class="sr-only">{{ label() }}</span>
+</span>
+

@@ -1,0 +1,96 @@
+<div class="login-page">
+  <div class="login-card" role="main">
+    <div class="login-brand">
+      <img src="/logo-rifa.png" alt="Rifas Luxury RD" />
+    </div>
+
+    <h1>Iniciar sesión</h1>
+    <p>Accede al backoffice</p>
+
+    @if (error && error.trim()) {
+      <div class="login-error" role="alert">{{ error }}</div>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <div class="field">
+        <label for="email">Email</label>
+        <input
+          id="email"
+          type="email"
+          formControlName="email"
+          placeholder="correo@ejemplo.com"
+          autocomplete="username"
+          [class.invalid]="emailCtrl.touched && emailCtrl.invalid"
+        />
+        @if (emailCtrl.touched && emailCtrl.invalid) {
+          <div class="field-error">
+            @if (emailCtrl.errors?.['required']) {
+              El email es requerido.
+            } @else {
+              Ingresa un email válido.
+            }
+          </div>
+        }
+      </div>
+
+      <div class="field">
+        <label for="password">Contraseña</label>
+        <div class="password-wrap">
+          <input
+            id="password"
+            [type]="showPassword() ? 'text' : 'password'"
+            formControlName="password"
+            placeholder="••••••••"
+            autocomplete="current-password"
+            [class.invalid]="passwordCtrl.touched && passwordCtrl.invalid"
+          />
+          <button
+            type="button"
+            class="eye-btn"
+            (click)="togglePassword()"
+            [attr.aria-pressed]="showPassword()"
+            [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+            title="Mostrar/Ocultar"
+          >
+            @if (showPassword()) {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+              </svg>
+            } @else {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                <path d="M3 3l18 18" />
+                <path d="M10.6 10.6a2.5 2.5 0 0 0 3.54 3.54" />
+                <path d="M9.5 5.6A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a18 18 0 0 1-4 5.2" />
+                <path d="M6.2 6.2C3.6 8.2 2 12 2 12s3.5 7 10 7c1 0 1.9-.1 2.7-.3" />
+              </svg>
+            }
+          </button>
+        </div>
+        @if (passwordCtrl.touched && passwordCtrl.invalid) {
+          <div class="field-error">La contraseña es requerida.</div>
+        }
+      </div>
+
+      <button
+        type="submit"
+        class="rl-btn rl-btn-primary"
+        [disabled]="form.invalid || isSubmitting"
+      >
+        @if (isSubmitting) {
+          <app-spinner [size]="18" [stroke]="3" label="Entrando" />
+          Entrando...
+        } @else {
+          Entrar
+        }
+      </button>
+    </form>
+
+    <div class="login-foot">
+      <span>Rifas Luxury RD</span>
+      <span class="dot" aria-hidden="true"></span>
+      <span class="muted">Backoffice</span>
+    </div>
+  </div>
+</div>
+
