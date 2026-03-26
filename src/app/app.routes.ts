@@ -24,6 +24,14 @@ export const routes: Routes = [
       import('./feature/auth/login/login.module').then((m) => m.LoginModule),
   },
   {
+    path: 'forgot-password',
+    canActivate: [publicOnlyGuard],
+    loadChildren: () =>
+      import('./feature/auth/forgot-password/forgot-password.module').then(
+        (m) => m.ForgotPasswordModule,
+      ),
+  },
+  {
     path: '**',
     redirectTo: 'login',
   },

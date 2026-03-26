@@ -7,13 +7,14 @@ import { finalize } from 'rxjs';
 import { AuthService } from '../../../core/auth/services/auth.service';
 import { LoginRequest } from '../../../core/auth/models/login-request.model';
 import { SpinnerComponent } from '../../../core/ui/spinner/spinner.component';
+import { RouterModule } from '@angular/router';
 
 @Component({
   selector: 'app-login',
   templateUrl: './login.component.html',
   styleUrl: './login.component.css',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, SpinnerComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, SpinnerComponent],
 })
 export class LoginComponent {
   form: FormGroup<{

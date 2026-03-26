@@ -7,6 +7,22 @@ import { environment } from '../../../../environments/environment';
 import { LoginRequest } from '../models/login-request.model';
 import { LoginResponse } from '../models/login-response.model';
 
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ForgotPasswordResponse {
+  message: string;
+  [key: string]: unknown;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  otp: string;
+  password: string;
+  password_confirmation: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly storageKey = 'rifasluxury_auth';
@@ -47,6 +63,20 @@ export class AuthService {
   login(payload: LoginRequest): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(
       `${environment.apiBaseUrl}/api/auth/login`,
+      payload,
+    );
+  }
+
+  forgotPassword(payload: ForgotPasswordRequest): Observable<ForgotPasswordResponse> {
+    return this.http.post<ForgotPasswordResponse>(
+      `${environment.apiBaseUrl}/api/auth/forgot-password`,
+      payload,
+    );
+  }
+
+  resetPassword(payload: ResetPasswordRequest): Observable<unknown> {
+    return this.http.post(
+      `${environment.apiBaseUrl}/api/auth/reset-password`,
       payload,
     );
   }
