@@ -1,0 +1,211 @@
+<div class="page-head">
+  <div>
+    <h1>Usuarios</h1>
+    <p>Cuentas staff: registro y gestión de usuarios del panel</p>
+  </div>
+  <button type="button" class="btn btn-primary" (click)="openCreateUser()">
+    Crear usuario
+  </button>
+</div>
+
+@if (usersError()) {
+  <div class="users-error" role="alert">{{ usersError() }}</div>
+}
+
+<section class="panel users-panel" aria-label="Listado de usuarios">
+  <div class="users-toolbar">
+    <div class="users-total">
+      Total: {{ totalUsers() }}
+      <span class="users-range"> | Mostrando {{ fromItem() }}-{{ toItem() }} de {{ totalUsers() }}</span>
+    </div>
+    <div class="users-toolbar-actions">
+      <div class="users-search">
+        <input
+          type="text"
+          placeholder="Buscar por nombre, email, rol..."
+          [value]="searchTerm()"
+          (input)="onSearchInput($any($event.target).value)"
+        />
+        @if (searchTerm().trim()) {
+          <button type="button" class="btn-inline" (click)="clearSearch()">Limpiar</button>
+        }
+      </div>
+      <button type="button" class="btn btn-ghost users-refresh" (click)="loadUsers()" [disabled]="usersLoading()">
+        @if (usersLoading()) {
+          <app-spinner [size]="16" [stroke]="3" label="Cargando usuarios" />
+          Cargando...
+        } @else {
+          Recargar
+        }
+      </button>
+    </div>
+  </div>
+
+  <div class="users-table-wrap">
+    <table class="users-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nombre</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Teléfono</th>
+          <th>Cédula</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (!usersLoading() && visibleUsers().length === 0) {
+          <tr>
+            <td colspan="7" class="empty">No hay usuarios para mostrar.</td>
+          </tr>
+        } @else {
+          @for (user of visibleUsers(); track user.id) {
+            <tr>
+              <td>{{ user.id }}</td>
+              <td>{{ user.name }}</td>
+              <td>{{ user.email }}</td>
+              <td>{{ user.role }}</td>
+              <td>{{ user.phone || '-' }}</td>
+              <td>{{ user.cedula || '-' }}</td>
+              <td>
+                <div class="row-actions">
+                  <button type="button" class="btn-inline" (click)="openViewUser(user)">Ver</button>
+                  <button type="button" class="btn-inline" (click)="openEditUser(user)">Editar</button>
+                  <button
+                    type="button"
+                    class="btn-inline danger"
+                    (click)="deleteUser(user)"
+                    [disabled]="deletingUserId() === user.id"
+                  >
+                    @if (deletingUserId() === user.id) {
+                      Eliminando...
+                    } @else {
+                      Eliminar
+                    }
+                  </button>
+                </div>
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="users-pagination">
+    <button
+      type="button"
+      class="btn-inline"
+      (click)="goPrevPage()"
+      [disabled]="usersLoading() || currentPage() <= 1"
+    >
+      Anterior
+    </button>
+
+    @if (currentPage() > 3) {
+      <button type="button" class="btn-inline" (click)="goToPage(1)">1</button>
+      @if (currentPage() > 4) {
+        <span class="pagination-ellipsis">...</span>
+      }
+    }
+
+    @for (page of pageNumbers(); track page) {
+      <button
+        type="button"
+        class="btn-inline"
+        [class.active-page]="page === currentPage()"
+        (click)="goToPage(page)"
+        [disabled]="usersLoading()"
+      >
+        {{ page }}
+      </button>
+    }
+
+    @if (currentPage() < lastPage() - 2) {
+      @if (currentPage() < lastPage() - 3) {
+        <span class="pagination-ellipsis">...</span>
+      }
+      <button type="button" class="btn-inline" (click)="goToPage(lastPage())">{{ lastPage() }}</button>
+    }
+
+    <button
+      type="button"
+      class="btn-inline"
+      (click)="goNextPage()"
+      [disabled]="usersLoading() || currentPage() >= lastPage()"
+    >
+      Siguiente
+    </button>
+  </div>
+</section>
+
+@if (userModalOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeUserModal()">
+    <div class="modal user-modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-h">
+        @if (userModalMode() === 'create') {
+          Crear usuario
+        } @else if (userModalMode() === 'edit') {
+          Editar usuario
+        } @else {
+          Ver usuario
+        }
+      </div>
+      <div class="modal-b">
+        @if (formError()) {
+          <div class="users-error">{{ formError() }}</div>
+        }
+
+        <form [formGroup]="userForm" (ngSubmit)="saveUser()">
+          <div class="form-grid">
+            <label>
+              Nombre
+              <input type="text" formControlName="name" />
+            </label>
+            <label>
+              Email
+              <input type="email" formControlName="email" />
+            </label>
+            <label>
+              Cédula
+              <input type="text" formControlName="cedula" />
+            </label>
+            <label>
+              Teléfono
+              <input type="text" formControlName="phone" />
+            </label>
+            <label>
+              Rol
+              <select formControlName="role">
+                <option value="admin">admin</option>
+                <option value="user">user</option>
+              </select>
+            </label>
+            @if (userModalMode() === 'create') {
+              <label>
+                Password
+                <input type="password" formControlName="password" />
+              </label>
+            }
+          </div>
+
+          <div class="modal-f">
+            <button type="button" class="btn btn-ghost" (click)="closeUserModal()">Cancelar</button>
+            @if (!isViewMode) {
+              <button type="submit" class="btn btn-primary" [disabled]="userForm.invalid || userSubmitting()">
+                @if (userSubmitting()) {
+                  <app-spinner [size]="16" [stroke]="3" label="Guardando usuario" />
+                  Guardando...
+                } @else {
+                  Guardar
+                }
+              </button>
+            }
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+

@@ -4,18 +4,24 @@ import { finalize } from 'rxjs';
 
 import { AuthService } from '../../core/auth/services/auth.service';
 import { SpinnerComponent } from '../../core/ui/spinner/spinner.component';
+import { ParticipantsComponent } from '../../feature/participants/participants.component';
+import { UsersComponent } from '../../feature/users/users.component';
+import { CategoriesComponent } from '../../feature/categories/categories.component';
+import { RafflesComponent } from '../../feature/raffles/raffles.component';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [RouterLink, SpinnerComponent],
+  imports: [RouterLink, SpinnerComponent, UsersComponent, ParticipantsComponent, CategoriesComponent, RafflesComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css',
 })
 export class DashboardComponent {
+  readonly currentView = signal<'dashboard' | 'users' | 'participants' | 'categories' | 'raffles'>('dashboard');
   readonly sidebarCollapsed = signal(false);
   readonly logoutOpen = signal(false);
   readonly userMenuOpen = signal(false);
+
   isLoggingOut = false;
 
   constructor(
@@ -33,6 +39,10 @@ export class DashboardComponent {
 
   closeUserMenu(): void {
     this.userMenuOpen.set(false);
+  }
+
+  openView(view: 'dashboard' | 'users' | 'participants' | 'categories' | 'raffles'): void {
+    this.currentView.set(view);
   }
 
   @HostListener('document:keydown.escape')

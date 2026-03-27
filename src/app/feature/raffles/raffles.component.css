@@ -1,0 +1,50 @@
+:host { display: block; }
+.page-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:1.35rem; }
+.page-head h1 { margin:0; font-size:1.65rem; font-weight:800; color:#04057a; }
+.page-head p { margin:.25rem 0 0; color:#5c6370; }
+.panel { background:#fff; border:1px solid #e6e8ed; border-radius:.85rem; padding:1rem; }
+.toolbar { display:flex; justify-content:space-between; align-items:center; gap:.75rem; flex-wrap:wrap; margin-bottom:.8rem; }
+.toolbar-actions { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
+.total { font-weight:700; color:#4f5565; }
+.range { color:#6a7284; font-weight:600; }
+.search { display:inline-flex; align-items:center; gap:.45rem; }
+.search input,.status-filter { border:1px solid #d9deea; border-radius:.55rem; padding:.52rem .65rem; background:#fff; }
+.table-wrap { overflow:auto; }
+.table { width:100%; border-collapse:collapse; min-width:860px; }
+.table th,.table td { text-align:left; padding:.65rem .55rem; border-bottom:1px solid #eceff4; font-size:.9rem; }
+.table th { color:#3a4151; font-size:.78rem; text-transform:uppercase; }
+.raffle-avatar { width:2.1rem; height:2.1rem; border-radius:999px; object-fit:cover; border:1px solid #d9deea; background:#f8f9fc; display:block; }
+.avatar-fallback { color:#71788a; font-size:.78rem; font-weight:600; }
+.empty { text-align:center; color:#71788a; font-weight:600; padding:1rem; }
+.row-actions { display:inline-flex; gap:.35rem; }
+.btn { display:inline-flex; align-items:center; gap:.45rem; padding:.55rem 1rem; border-radius:.65rem; border:none; cursor:pointer; font:inherit; }
+.btn-ghost { background:#fff; color:#5c6370; border:1px solid #e6e8ed; }
+.btn-primary { background:linear-gradient(180deg,#f80203 0%,#c90203 100%); color:#fff; }
+.btn-inline { border:1px solid #d8deea; background:#fff; color:#1b2a4a; font-weight:700; border-radius:.45rem; padding:.28rem .45rem; cursor:pointer; }
+.btn-inline.danger { border-color:#f6c3c3; color:#af1111; }
+.pagination { display:flex; justify-content:flex-end; gap:.4rem; margin-top:.95rem; flex-wrap:wrap; }
+.active-page { background:#1b2a4a; color:#fff; border-color:#1b2a4a; }
+.list-error { margin-bottom:.8rem; background:rgba(248,2,3,.1); border:1px solid rgba(248,2,3,.28); color:#c21112; border-radius:.65rem; padding:.65rem .75rem; font-weight:700; }
+.modal-backdrop { position:fixed; inset:0; background:rgb(4 5 122 / .45); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; padding:1rem; z-index:100; }
+.modal { width:100%; max-width:56rem; max-height:92vh; overflow:auto; background:#fff; border:1px solid #e6e8ed; border-radius:1rem; }
+.tickets-modal { max-width:48rem; }
+.modal-h { padding:1.1rem 1.25rem .5rem; border-bottom:1px solid #edf0f6; }
+.modal-title { font-size:1.1rem; font-weight:800; color:#04057a; }
+.modal-subtitle { margin:.25rem 0 0; font-size:.85rem; color:#636c80; font-weight:600; }
+.modal-b { padding:.9rem 1.25rem 1.15rem; }
+.form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; }
+.form-grid label { display:grid; gap:.35rem; font-size:.82rem; font-weight:700; color:#2c3552; }
+.form-grid label.full { grid-column:1 / -1; }
+.form-grid .full-alert { grid-column:1 / -1; margin:0; }
+.banner-preview { display:grid; gap:.45rem; padding:.55rem; border:1px dashed #ccd5e6; border-radius:.6rem; background:#f9fbff; }
+.banner-preview-label { font-size:.74rem; color:#60708f; font-weight:700; text-transform:uppercase; letter-spacing:.02em; }
+.banner-preview img { width:100%; max-height:140px; object-fit:cover; border-radius:.5rem; border:1px solid #dce3f0; }
+.input-help { color:#6a7284; font-size:.74rem; font-weight:600; margin-top:-.1rem; }
+.form-grid input,.form-grid select,.form-grid textarea { width:100%; border:1px solid #d9deea; border-radius:.55rem; padding:.56rem .66rem; background:#fff; }
+.modal-f { margin-top:1.25rem; padding-top:1rem; border-top:1px solid #e6e8ed; display:flex; justify-content:flex-end; gap:.85rem; }
+.tickets-meta { font-weight:700; color:#4f5565; margin-bottom:.55rem; }
+.tickets-loading { display:flex; align-items:center; gap:.55rem; color:#5c6370; font-weight:700; }
+.tickets-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(72px,1fr)); gap:.45rem; max-height:22rem; overflow:auto; padding:.25rem 0; }
+.ticket-chip { display:inline-flex; align-items:center; justify-content:center; border:1px solid #d9deea; border-radius:.45rem; padding:.35rem .4rem; font-weight:700; color:#1b2a4a; background:#fff; }
+.tickets-page { display:inline-flex; align-items:center; font-weight:700; color:#4f5565; }
+@media (max-width: 900px) { .form-grid { grid-template-columns:1fr; } }

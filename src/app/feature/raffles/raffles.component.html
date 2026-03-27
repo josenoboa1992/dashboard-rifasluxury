@@ -1,0 +1,270 @@
+<div class="page-head">
+  <div>
+    <h1>Rifas</h1>
+    <p>Gestion y administracion de rifas</p>
+  </div>
+  <button type="button" class="btn btn-primary" (click)="openCreate()">
+    Nueva rifa
+  </button>
+</div>
+
+@if (error()) {
+  <div #panelError class="list-error" role="alert" tabindex="-1">{{ error() }}</div>
+}
+
+<section class="panel" aria-label="Listado de rifas">
+  <div class="toolbar">
+    <div class="total">
+      Total: {{ total() }}
+      <span class="range"> | Mostrando {{ fromItem() }}-{{ toItem() }} de {{ total() }}</span>
+    </div>
+    <div class="toolbar-actions">
+      <div class="search">
+        <input
+          type="text"
+          placeholder="Buscar por titulo o estado..."
+          [value]="searchTerm()"
+          (input)="onSearchInput($any($event.target).value)"
+        />
+        @if (searchTerm().trim()) {
+          <button type="button" class="btn-inline" (click)="clearSearch()">Limpiar</button>
+        }
+      </div>
+      <select class="status-filter" [value]="statusFilter()" (change)="onStatusFilterChange($any($event.target).value)">
+        <option value="">Todos</option>
+        <option value="draft">Draft</option>
+        <option value="active">Active</option>
+        <option value="completed">Completed</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+      <button type="button" class="btn btn-ghost refresh" (click)="loadRaffles()" [disabled]="loading()">
+        @if (loading()) {
+          <app-spinner [size]="16" [stroke]="3" label="Cargando rifas" />
+          Cargando...
+        } @else {
+          Recargar
+        }
+      </button>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Imagen</th>
+          <th>Titulo</th>
+          <th>Estado</th>
+          <th>Precio ticket</th>
+          <th>Tickets meta</th>
+          <th>Disponibles</th>
+          <th>Fecha sorteo</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (!loading() && visibleRaffles().length === 0) {
+          <tr>
+            <td colspan="9" class="empty">No hay rifas para mostrar.</td>
+          </tr>
+        } @else {
+          @for (raffle of visibleRaffles(); track raffle.id) {
+            <tr>
+              <td>{{ raffle.id }}</td>
+              <td>
+                @if (getRaffleImageUrl(raffle); as imageUrl) {
+                  <img class="raffle-avatar" [src]="imageUrl" [alt]="raffle.title" />
+                } @else {
+                  <span class="avatar-fallback">Sin imagen</span>
+                }
+              </td>
+              <td>{{ raffle.title }}</td>
+              <td>{{ raffle.status }}</td>
+              <td>{{ raffle.ticket_price }}</td>
+              <td>{{ raffle.ticket_goal }}</td>
+              <td>{{ raffle.tickets_available_count ?? '-' }}</td>
+              <td>{{ raffle.draw_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+              <td>
+                <div class="row-actions">
+                  <button type="button" class="btn-inline" (click)="openView(raffle)">Ver</button>
+                  <button type="button" class="btn-inline" (click)="openAvailableTickets(raffle)">Disponibles</button>
+                  <button type="button" class="btn-inline" (click)="openEdit(raffle)">Editar</button>
+                  <button
+                    type="button"
+                    class="btn-inline danger"
+                    (click)="remove(raffle)"
+                    [disabled]="deletingId() === raffle.id"
+                  >
+                    @if (deletingId() === raffle.id) {
+                      Eliminando...
+                    } @else {
+                      Eliminar
+                    }
+                  </button>
+                </div>
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination">
+    <button type="button" class="btn-inline" (click)="goPrevPage()" [disabled]="loading() || currentPage() <= 1">
+      Anterior
+    </button>
+    @for (page of pageNumbers(); track page) {
+      <button
+        type="button"
+        class="btn-inline"
+        [class.active-page]="page === currentPage()"
+        (click)="goToPage(page)"
+        [disabled]="loading()"
+      >
+        {{ page }}
+      </button>
+    }
+    <button type="button" class="btn-inline" (click)="goNextPage()" [disabled]="loading() || currentPage() >= lastPage()">
+      Siguiente
+    </button>
+  </div>
+</section>
+
+@if (modalOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeModal()">
+    <div class="modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-h">
+        <div class="modal-title">{{ modalTitle }}</div>
+        <p class="modal-subtitle">{{ modalSubtitle }}</p>
+      </div>
+      <div class="modal-b">
+        @if (modalError()) {
+          <div class="list-error">{{ modalError() }}</div>
+        }
+        <form [formGroup]="raffleForm" (ngSubmit)="save()">
+          <div class="form-grid">
+            <label>
+              Categoria
+              <select formControlName="category_id">
+                <option [ngValue]="0" disabled>Selecciona categoria</option>
+                @for (cat of categories(); track cat.id) {
+                  <option [ngValue]="cat.id">{{ getCategoryName(cat) }}</option>
+                }
+              </select>
+            </label>
+            <label>Titulo <input type="text" formControlName="title" placeholder="Ej: Rifa Mercedes 2026" /></label>
+            <label>Estado
+              <select formControlName="status">
+                <option value="draft">draft</option>
+                <option value="active">active</option>
+                <option value="completed">completed</option>
+                <option value="cancelled">cancelled</option>
+              </select>
+            </label>
+            <label class="full">
+              Banner image (archivo)
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png,.webp,.gif"
+                (change)="onBannerImageSelected($event)"
+                [disabled]="modalMode() === 'view'"
+              />
+              <small class="input-help">{{ selectedBannerFileName }}</small>
+            </label>
+            @if (currentBannerUrl()) {
+              <div class="banner-preview full">
+                <span class="banner-preview-label">Imagen actual</span>
+                <img [src]="currentBannerUrl()" alt="Banner actual de la rifa" />
+              </div>
+            }
+            @if (categoriesError()) {
+              <div class="list-error full-alert">{{ categoriesError() }}</div>
+            }
+            <label class="full">Descripcion <textarea rows="3" formControlName="description" placeholder="Describe el premio o las condiciones de la rifa"></textarea></label>
+            <label>Ticket goal <input type="number" formControlName="ticket_goal" placeholder="1000" /></label>
+            <label>Ticket price <input type="number" formControlName="ticket_price" placeholder="50" /></label>
+            <label>Max tickets/user <input type="number" formControlName="max_tickets_per_user" placeholder="10" /></label>
+            <label>Min tickets/user <input type="number" formControlName="min_tickets_per_user" placeholder="1" /></label>
+            <label>Ganadores <input type="number" formControlName="winners_count" placeholder="1" /></label>
+            <label>Digit count <input type="number" formControlName="digit_count" placeholder="3" /></label>
+            <label>
+              Inicio
+              <input type="datetime-local" formControlName="starts_at" (change)="onStartsAtChange($any($event.target).value)" />
+            </label>
+            <label>
+              Fin
+              <input
+                type="datetime-local"
+                formControlName="ends_at"
+                [min]="minEndsAt"
+                (change)="onEndsAtChange($any($event.target).value)"
+              />
+              <small class="input-help">Debe ser igual o posterior a Inicio.</small>
+            </label>
+            <label>
+              Sorteo
+              <input type="datetime-local" formControlName="draw_at" [min]="minDrawAt" />
+              <small class="input-help">Debe ser igual o posterior a Fin.</small>
+            </label>
+          </div>
+          <div class="modal-f">
+            <button type="button" class="btn btn-ghost" (click)="closeModal()">
+              @if (modalMode() === 'view') { Cerrar } @else { Cancelar }
+            </button>
+            @if (modalMode() !== 'view') {
+              <button type="submit" class="btn btn-primary" [disabled]="raffleForm.invalid || modalSubmitting()">
+                @if (modalSubmitting()) {
+                  <app-spinner [size]="16" [stroke]="3" label="Guardando rifa" />
+                  Guardando...
+                } @else {
+                  Guardar
+                }
+              </button>
+            }
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+@if (ticketsOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeAvailableTickets()">
+    <div class="modal tickets-modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-h">Tickets disponibles - {{ ticketsRaffleTitle() }}</div>
+      <div class="modal-b">
+        @if (ticketsError()) {
+          <div class="list-error">{{ ticketsError() }}</div>
+        }
+        <div class="tickets-meta">
+          Mostrando {{ ticketsFrom() }}-{{ ticketsTo() }} de {{ ticketsTotal() }}
+        </div>
+        @if (ticketsLoading()) {
+          <div class="tickets-loading">
+            <app-spinner [size]="18" [stroke]="3" label="Cargando tickets" />
+            Cargando tickets...
+          </div>
+        } @else {
+          <div class="tickets-grid">
+            @for (ticket of tickets(); track ticket) {
+              <span class="ticket-chip">{{ ticket }}</span>
+            }
+          </div>
+        }
+        <div class="modal-f">
+          <button type="button" class="btn btn-ghost" (click)="closeAvailableTickets()">Cerrar</button>
+          <button type="button" class="btn-inline" (click)="goPrevTicketsPage()" [disabled]="ticketsCurrentPage() <= 1 || ticketsLoading()">
+            Anterior
+          </button>
+          <span class="tickets-page">{{ ticketsCurrentPage() }} / {{ ticketsLastPage() }}</span>
+          <button type="button" class="btn-inline" (click)="goNextTicketsPage()" [disabled]="ticketsCurrentPage() >= ticketsLastPage() || ticketsLoading()">
+            Siguiente
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+

@@ -1,0 +1,174 @@
+<div class="page-head">
+  <div>
+    <h1>Categorias</h1>
+    <p>Listado de categorias del sistema</p>
+  </div>
+  <button type="button" class="btn btn-primary" (click)="openCreateCategory()">
+    Crear categoria
+  </button>
+</div>
+
+@if (error()) {
+  <div class="list-error" role="alert">{{ error() }}</div>
+}
+
+<section class="panel" aria-label="Listado de categorias">
+  <div class="toolbar">
+    <div class="total">
+      Total: {{ total() }}
+      <span class="range"> | Mostrando {{ fromItem() }}-{{ toItem() }} de {{ total() }}</span>
+    </div>
+    <div class="toolbar-actions">
+      <div class="search">
+        <input
+          type="text"
+          placeholder="Buscar por id, nombre o slug..."
+          [value]="searchTerm()"
+          (input)="onSearchInput($any($event.target).value)"
+        />
+        @if (searchTerm().trim()) {
+          <button type="button" class="btn-inline" (click)="clearSearch()">Limpiar</button>
+        }
+      </div>
+      <button type="button" class="btn btn-ghost refresh" (click)="loadCategories()" [disabled]="loading()">
+        @if (loading()) {
+          <app-spinner [size]="16" [stroke]="3" label="Cargando categorias" />
+          Cargando...
+        } @else {
+          Recargar
+        }
+      </button>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nombre</th>
+          <th>Slug</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (!loading() && visibleCategories().length === 0) {
+          <tr>
+            <td colspan="4" class="empty">No hay categorias para mostrar.</td>
+          </tr>
+        } @else {
+          @for (category of visibleCategories(); track category.id) {
+            <tr>
+              <td>{{ category.id }}</td>
+              <td>{{ getCategoryName(category) }}</td>
+              <td>{{ category.slug || '-' }}</td>
+              <td>
+                <div class="row-actions">
+                  <button type="button" class="btn-inline" (click)="openViewCategory(category)">Ver</button>
+                  <button type="button" class="btn-inline" (click)="openEditCategory(category)">Editar</button>
+                  <button
+                    type="button"
+                    class="btn-inline danger"
+                    (click)="deleteCategory(category)"
+                    [disabled]="deletingCategoryId() === category.id"
+                  >
+                    @if (deletingCategoryId() === category.id) {
+                      Eliminando...
+                    } @else {
+                      Eliminar
+                    }
+                  </button>
+                </div>
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination">
+    <button type="button" class="btn-inline" (click)="goPrevPage()" [disabled]="loading() || currentPage() <= 1">
+      Anterior
+    </button>
+
+    @if (currentPage() > 3) {
+      <button type="button" class="btn-inline" (click)="goToPage(1)">1</button>
+      @if (currentPage() > 4) {
+        <span class="ellipsis">...</span>
+      }
+    }
+
+    @for (page of pageNumbers(); track page) {
+      <button
+        type="button"
+        class="btn-inline"
+        [class.active-page]="page === currentPage()"
+        (click)="goToPage(page)"
+        [disabled]="loading()"
+      >
+        {{ page }}
+      </button>
+    }
+
+    @if (currentPage() < lastPage() - 2) {
+      @if (currentPage() < lastPage() - 3) {
+        <span class="ellipsis">...</span>
+      }
+      <button type="button" class="btn-inline" (click)="goToPage(lastPage())">{{ lastPage() }}</button>
+    }
+
+    <button type="button" class="btn-inline" (click)="goNextPage()" [disabled]="loading() || currentPage() >= lastPage()">
+      Siguiente
+    </button>
+  </div>
+</section>
+
+@if (modalOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeModal()">
+    <div class="modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-h">
+        @if (modalMode() === 'create') {
+          Crear categoria
+        } @else if (modalMode() === 'edit') {
+          Editar categoria
+        } @else {
+          Ver categoria
+        }
+      </div>
+      <div class="modal-b">
+        @if (modalError()) {
+          <div class="list-error">{{ modalError() }}</div>
+        }
+
+        <form [formGroup]="categoryForm" (ngSubmit)="saveCategory()">
+          <div class="form-grid">
+            <label>
+              Nombre
+              <input type="text" formControlName="name" />
+            </label>
+            <label>
+              Slug
+              <input type="text" formControlName="slug" />
+            </label>
+          </div>
+
+          <div class="modal-f">
+            <button type="button" class="btn btn-ghost" (click)="closeModal()">Cancelar</button>
+            @if (modalMode() !== 'view') {
+              <button type="submit" class="btn btn-primary" [disabled]="categoryForm.invalid || modalSubmitting()">
+                @if (modalSubmitting()) {
+                  <app-spinner [size]="16" [stroke]="3" label="Guardando categoria" />
+                  Guardando...
+                } @else {
+                  Guardar
+                }
+              </button>
+            }
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
