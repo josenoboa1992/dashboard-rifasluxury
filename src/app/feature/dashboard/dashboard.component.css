@@ -1144,13 +1144,17 @@ a.nav-item {
 
   .modal-backdrop {
     padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(0.75rem, env(safe-area-inset-bottom));
-    align-items: flex-end;
+    align-items: center;
+    justify-content: center;
   }
 
   .modal {
-    max-width: 100%;
-    max-height: min(92dvh, 100%);
-    border-radius: 1rem 1rem 0 0;
+    width: 100%;
+    max-width: min(24rem, calc(100vw - 1.5rem));
+    max-height: min(90dvh, 92vh);
+    overflow-y: auto;
+    border-radius: 1rem;
+    -webkit-overflow-scrolling: touch;
   }
 
   .modal--cp {
@@ -1204,12 +1208,7 @@ a.nav-item {
 }
 
 @media (max-width: 899px) and (min-width: 481px) {
-  .modal-backdrop {
-    align-items: center;
-  }
-
   .modal {
-    border-radius: 1rem;
     max-height: min(90dvh, 720px);
   }
 }

@@ -1,0 +1,16 @@
+# Angular SPA en Apache (cPanel). Sube el contenido de dist/.../browser junto a este archivo.
+# Si la app está en una subcarpeta, cambia RewriteBase (ej. /mi-app/)
+
+<IfModule mod_rewrite.c>
+  Options -MultiViews
+  RewriteEngine On
+  RewriteBase /
+
+  # Archivos y carpetas reales (JS, CSS, imágenes) se sirven tal cual
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # El resto de rutas → index.html (router de Angular)
+  RewriteRule ^ index.html [L]
+</IfModule>

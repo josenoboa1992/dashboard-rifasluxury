@@ -11,17 +11,24 @@
   --rl-border: #e6e8ed;
 
   display: block;
-  min-height: 100vh;
   font-family: var(--app-font-family);
   color: var(--rl-text);
+  /* Evita scroll horizontal por sombras/márgenes en viewports estrechos */
+  overflow-x: clip;
 }
 
 .login-page {
+  box-sizing: border-box;
+  /* 100vh en móvil suele ser más alto que la ventana visible → scroll innecesario */
   min-height: 100vh;
+  min-height: 100dvh;
+  min-height: 100svh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2rem 1.25rem;
+  padding-top: max(1.25rem, env(safe-area-inset-top));
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
   background: radial-gradient(1000px 520px at 18% 10%, rgba(5, 184, 243, 0.24), transparent 60%),
     radial-gradient(900px 520px at 82% 18%, rgba(248, 2, 3, 0.10), transparent 60%),
     linear-gradient(180deg, #f4f5f7 0%, #eef1f6 50%, #f4f5f7 100%);
@@ -257,6 +264,11 @@ input.invalid:focus {
 }
 
 @media (max-width: 420px) {
+  .login-page {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
   .login-card {
     padding: 1.1rem 1rem 1rem;
   }
