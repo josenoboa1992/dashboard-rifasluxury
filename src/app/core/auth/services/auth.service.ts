@@ -1,11 +1,11 @@
 import { isPlatformBrowser } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Inject, Injectable, PLATFORM_ID } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { environment } from '../../../../environments/environment';
 import { LoginRequest } from '../models/login-request.model';
-import { LoginResponse } from '../models/login-response.model';
+import { LoginResponse, LoginUser } from '../models/login-response.model';
 
 export interface ForgotPasswordRequest {
   email: string;
@@ -19,6 +19,12 @@ export interface ForgotPasswordResponse {
 export interface ResetPasswordRequest {
   email: string;
   otp: string;
+  password: string;
+  password_confirmation: string;
+}
+
+export interface ChangePasswordRequest {
+  current_password: string;
   password: string;
   password_confirmation: string;
 }
@@ -86,6 +92,17 @@ export class AuthService {
     return this.http.post(`${environment.apiBaseUrl}/api/auth/logout`, {});
   }
 
+  /** POST /api/auth/change-password — usuario autenticado (Bearer). */
+  changePassword(payload: ChangePasswordRequest): Observable<unknown> {
+    const token = this.getToken();
+    const headers = token
+      ? new HttpHeaders({ Authorization: `Bearer ${token}` })
+      : undefined;
+    return this.http.post(`${environment.apiBaseUrl}/api/auth/change-password`, payload, {
+      headers,
+    });
+  }
+
   saveAuth(response: LoginResponse, remember: boolean = true): void {
     if (!isPlatformBrowser(this.platformId)) return;
 
@@ -113,6 +130,25 @@ export class AuthService {
     try {
       const parsed = JSON.parse(raw) as { token?: string };
       return parsed.token ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Usuario guardado en la última respuesta de login (`user` en el JSON del API). */
+  getSessionUser(): LoginUser | null {
+    if (!isPlatformBrowser(this.platformId)) return null;
+
+    const raw =
+      localStorage.getItem(this.storageKey) ??
+      sessionStorage.getItem(this.storageKey);
+    if (!raw) return null;
+
+    try {
+      const parsed = JSON.parse(raw) as { raw?: LoginResponse };
+      const u = parsed.raw?.user;
+      if (!u || typeof u !== 'object') return null;
+      return u as LoginUser;
     } catch {
       return null;
     }

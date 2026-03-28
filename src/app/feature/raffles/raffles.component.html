@@ -81,25 +81,51 @@
               </td>
               <td>{{ raffle.title }}</td>
               <td>{{ raffle.status }}</td>
-              <td>{{ raffle.ticket_price }}</td>
+              <td class="nowrap">{{ (raffle.ticket_price | formatMoney) || '—' }}</td>
               <td>{{ raffle.ticket_goal }}</td>
               <td>{{ raffle.tickets_available_count ?? '-' }}</td>
-              <td>{{ raffle.draw_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+              <td>{{ raffle.draw_at | formatDateTime }}</td>
               <td>
                 <div class="row-actions">
-                  <button type="button" class="btn-inline" (click)="openView(raffle)">Ver</button>
-                  <button type="button" class="btn-inline" (click)="openAvailableTickets(raffle)">Disponibles</button>
-                  <button type="button" class="btn-inline" (click)="openEdit(raffle)">Editar</button>
                   <button
                     type="button"
-                    class="btn-inline danger"
+                    class="action-icon action-icon--view"
+                    (click)="openView(raffle)"
+                    aria-label="Ver detalle"
+                    title="Ver"
+                  >
+                    <mat-icon aria-hidden="true">visibility</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="action-icon action-icon--tickets"
+                    (click)="openAvailableTickets(raffle)"
+                    aria-label="Ver boletos disponibles"
+                    title="Disponibles"
+                  >
+                    <mat-icon aria-hidden="true">confirmation_number</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="action-icon action-icon--edit"
+                    (click)="openEdit(raffle)"
+                    aria-label="Editar rifa"
+                    title="Editar"
+                  >
+                    <mat-icon aria-hidden="true">edit</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="action-icon action-icon--delete"
                     (click)="remove(raffle)"
                     [disabled]="deletingId() === raffle.id"
+                    aria-label="Eliminar rifa"
+                    title="Eliminar"
                   >
                     @if (deletingId() === raffle.id) {
-                      Eliminando...
+                      <mat-icon aria-hidden="true" class="action-icon-spin">autorenew</mat-icon>
                     } @else {
-                      Eliminar
+                      <mat-icon aria-hidden="true">delete</mat-icon>
                     }
                   </button>
                 </div>
@@ -143,7 +169,11 @@
         @if (modalError()) {
           <div class="list-error">{{ modalError() }}</div>
         }
-        <form [formGroup]="raffleForm" (ngSubmit)="save()">
+        <form
+          [formGroup]="raffleForm"
+          (ngSubmit)="save()"
+          [class.raffle-detail-view]="modalMode() === 'view'"
+        >
           <div class="form-grid">
             <label>
               Categoria
@@ -153,8 +183,13 @@
                   <option [ngValue]="cat.id">{{ getCategoryName(cat) }}</option>
                 }
               </select>
+              @if (isInvalid('category_id')) { <small class="field-error">{{ getErrorMessage('category_id') }}</small> }
             </label>
-            <label>Titulo <input type="text" formControlName="title" placeholder="Ej: Rifa Mercedes 2026" /></label>
+            <label>
+              Titulo
+              <input type="text" formControlName="title" placeholder="Ej: Rifa Mercedes 2026" />
+              @if (isInvalid('title')) { <small class="field-error">{{ getErrorMessage('title') }}</small> }
+            </label>
             <label>Estado
               <select formControlName="status">
                 <option value="draft">draft</option>
@@ -162,6 +197,7 @@
                 <option value="completed">completed</option>
                 <option value="cancelled">cancelled</option>
               </select>
+              @if (isInvalid('status')) { <small class="field-error">{{ getErrorMessage('status') }}</small> }
             </label>
             <label class="full">
               Banner image (archivo)
@@ -182,32 +218,196 @@
             @if (categoriesError()) {
               <div class="list-error full-alert">{{ categoriesError() }}</div>
             }
-            <label class="full">Descripcion <textarea rows="3" formControlName="description" placeholder="Describe el premio o las condiciones de la rifa"></textarea></label>
-            <label>Ticket goal <input type="number" formControlName="ticket_goal" placeholder="1000" /></label>
-            <label>Ticket price <input type="number" formControlName="ticket_price" placeholder="50" /></label>
-            <label>Max tickets/user <input type="number" formControlName="max_tickets_per_user" placeholder="10" /></label>
-            <label>Min tickets/user <input type="number" formControlName="min_tickets_per_user" placeholder="1" /></label>
-            <label>Ganadores <input type="number" formControlName="winners_count" placeholder="1" /></label>
-            <label>Digit count <input type="number" formControlName="digit_count" placeholder="3" /></label>
-            <label>
-              Inicio
-              <input type="datetime-local" formControlName="starts_at" (change)="onStartsAtChange($any($event.target).value)" />
+            <label class="full">
+              Descripcion
+              <textarea rows="3" formControlName="description" placeholder="Describe el premio o las condiciones de la rifa"></textarea>
+              @if (isInvalid('description')) { <small class="field-error">{{ getErrorMessage('description') }}</small> }
             </label>
             <label>
-              Fin
-              <input
-                type="datetime-local"
-                formControlName="ends_at"
-                [min]="minEndsAt"
-                (change)="onEndsAtChange($any($event.target).value)"
-              />
+              Meta de tickets
+              <input type="number" formControlName="ticket_goal" placeholder="1000" />
+              @if (isInvalid('ticket_goal')) { <small class="field-error">{{ getErrorMessage('ticket_goal') }}</small> }
+            </label>
+            <label>
+              Precio por ticket
+              @if (modalMode() === 'view') {
+                <div class="money-readonly" aria-label="Precio por ticket">{{ (raffleForm.getRawValue().ticket_price | formatMoney) || '—' }}</div>
+              } @else {
+                <input type="number" formControlName="ticket_price" placeholder="50" min="1" step="0.01" />
+                @if (isInvalid('ticket_price')) { <small class="field-error">{{ getErrorMessage('ticket_price') }}</small> }
+              }
+            </label>
+            <label>
+              Maximo de tickets por usuario
+              <input type="number" formControlName="max_tickets_per_user" placeholder="10" />
+              @if (isInvalid('max_tickets_per_user')) { <small class="field-error">{{ getErrorMessage('max_tickets_per_user') }}</small> }
+            </label>
+            <label>
+              Minimo de tickets por usuario
+              <input type="number" formControlName="min_tickets_per_user" placeholder="1" />
+              @if (isInvalid('min_tickets_per_user')) { <small class="field-error">{{ getErrorMessage('min_tickets_per_user') }}</small> }
+            </label>
+            <label>
+              Ganadores
+              <input type="number" formControlName="winners_count" placeholder="1" />
+              @if (isInvalid('winners_count')) { <small class="field-error">{{ getErrorMessage('winners_count') }}</small> }
+            </label>
+            <label>
+              Cantidad de digitos
+              <input type="number" formControlName="digit_count" placeholder="3" />
+              @if (isInvalid('digit_count')) { <small class="field-error">{{ getErrorMessage('digit_count') }}</small> }
+            </label>
+            <div class="datetime-block full">
+              <div class="datetime-row">
+                <mat-form-field appearance="outline" class="datetime-date">
+                  <mat-label>Inicio (fecha)</mat-label>
+                  <input
+                    matInput
+                    [matDatepicker]="pickerStart"
+                    formControlName="starts_at_date"
+                    [readonly]="true"
+                    (dateChange)="onStartsDateOrTimeChange()"
+                  />
+                  <mat-datepicker-toggle matIconSuffix [for]="pickerStart" [disabled]="modalMode() === 'view'"></mat-datepicker-toggle>
+                  <mat-datepicker #pickerStart></mat-datepicker>
+                </mat-form-field>
+                <div class="datetime-time-group">
+                  <mat-form-field appearance="outline" class="time-hour">
+                    <mat-label>Hora</mat-label>
+                    <mat-select
+                      formControlName="starts_at_hour"
+                      [compareWith]="compareNumericSelect"
+                      (selectionChange)="onStartsDateOrTimeChange()"
+                    >
+                      @for (h of hours12; track h) {
+                        <mat-option [value]="h">{{ h }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="time-minute">
+                    <mat-label>Min</mat-label>
+                    <mat-select formControlName="starts_at_minute" (selectionChange)="onStartsDateOrTimeChange()">
+                      @for (m of minutesList; track m) {
+                        <mat-option [value]="m">{{ minuteLabel(m) }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="time-ampm">
+                    <mat-label>Periodo</mat-label>
+                    <mat-select formControlName="starts_at_ampm" (selectionChange)="onStartsDateOrTimeChange()">
+                      <mat-option value="am">a.m.</mat-option>
+                      <mat-option value="pm">p.m.</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+              </div>
+              @if (isInvalid('starts_at_date') || isInvalid('starts_at_hour') || isInvalid('starts_at_minute') || isInvalid('starts_at_ampm')) {
+                <small class="field-error">{{ getErrorMessage('starts_at_date') || firstTimeError('starts_at') }}</small>
+              }
+            </div>
+            <div class="datetime-block full">
+              <div class="datetime-row">
+                <mat-form-field appearance="outline" class="datetime-date">
+                  <mat-label>Fin (fecha)</mat-label>
+                  <input
+                    matInput
+                    [matDatepicker]="pickerEnd"
+                    formControlName="ends_at_date"
+                    [readonly]="true"
+                    [min]="minDateForEnds"
+                    [matDatepickerFilter]="endsDateFilter"
+                    (dateChange)="onEndsDateOrTimeChange()"
+                  />
+                  <mat-datepicker-toggle matIconSuffix [for]="pickerEnd" [disabled]="modalMode() === 'view'"></mat-datepicker-toggle>
+                  <mat-datepicker #pickerEnd></mat-datepicker>
+                </mat-form-field>
+                <div class="datetime-time-group">
+                  <mat-form-field appearance="outline" class="time-hour">
+                    <mat-label>Hora</mat-label>
+                    <mat-select
+                      formControlName="ends_at_hour"
+                      [compareWith]="compareNumericSelect"
+                      (selectionChange)="onEndsDateOrTimeChange()"
+                    >
+                      @for (h of hours12; track h) {
+                        <mat-option [value]="h">{{ h }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="time-minute">
+                    <mat-label>Min</mat-label>
+                    <mat-select
+                      formControlName="ends_at_minute"
+                      [compareWith]="compareNumericSelect"
+                      (selectionChange)="onEndsDateOrTimeChange()"
+                    >
+                      @for (m of minutesList; track m) {
+                        <mat-option [value]="m">{{ minuteLabel(m) }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="time-ampm">
+                    <mat-label>Periodo</mat-label>
+                    <mat-select formControlName="ends_at_ampm" (selectionChange)="onEndsDateOrTimeChange()">
+                      <mat-option value="am">a.m.</mat-option>
+                      <mat-option value="pm">p.m.</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+              </div>
               <small class="input-help">Debe ser igual o posterior a Inicio.</small>
-            </label>
-            <label>
-              Sorteo
-              <input type="datetime-local" formControlName="draw_at" [min]="minDrawAt" />
+              @if (isInvalid('ends_at_date') || isInvalid('ends_at_hour') || isInvalid('ends_at_minute') || isInvalid('ends_at_ampm')) {
+                <small class="field-error">{{ getErrorMessage('ends_at_date') || firstTimeError('ends_at') }}</small>
+              }
+              @if (getDateFieldError('ends')) { <small class="field-error">{{ getDateFieldError('ends') }}</small> }
+            </div>
+            <div class="datetime-block full">
+              <div class="datetime-row">
+                <mat-form-field appearance="outline" class="datetime-date">
+                  <mat-label>Sorteo (fecha)</mat-label>
+                  <input
+                    matInput
+                    [matDatepicker]="pickerDraw"
+                    formControlName="draw_at_date"
+                    [readonly]="true"
+                    [min]="minDateForDraw"
+                    [matDatepickerFilter]="drawDateFilter"
+                  />
+                  <mat-datepicker-toggle matIconSuffix [for]="pickerDraw" [disabled]="modalMode() === 'view'"></mat-datepicker-toggle>
+                  <mat-datepicker #pickerDraw></mat-datepicker>
+                </mat-form-field>
+                <div class="datetime-time-group">
+                  <mat-form-field appearance="outline" class="time-hour">
+                    <mat-label>Hora</mat-label>
+                    <mat-select formControlName="draw_at_hour" [compareWith]="compareNumericSelect">
+                      @for (h of hours12; track h) {
+                        <mat-option [value]="h">{{ h }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="time-minute">
+                    <mat-label>Min</mat-label>
+                    <mat-select formControlName="draw_at_minute" [compareWith]="compareNumericSelect">
+                      @for (m of minutesList; track m) {
+                        <mat-option [value]="m">{{ minuteLabel(m) }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="time-ampm">
+                    <mat-label>Periodo</mat-label>
+                    <mat-select formControlName="draw_at_ampm">
+                      <mat-option value="am">a.m.</mat-option>
+                      <mat-option value="pm">p.m.</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+              </div>
               <small class="input-help">Debe ser igual o posterior a Fin.</small>
-            </label>
+              @if (isInvalid('draw_at_date') || isInvalid('draw_at_hour') || isInvalid('draw_at_minute') || isInvalid('draw_at_ampm')) {
+                <small class="field-error">{{ getErrorMessage('draw_at_date') || firstTimeError('draw_at') }}</small>
+              }
+              @if (getDateFieldError('draw')) { <small class="field-error">{{ getDateFieldError('draw') }}</small> }
+            </div>
           </div>
           <div class="modal-f">
             <button type="button" class="btn btn-ghost" (click)="closeModal()">
@@ -241,6 +441,10 @@
         <div class="tickets-meta">
           Mostrando {{ ticketsFrom() }}-{{ ticketsTo() }} de {{ ticketsTotal() }}
         </div>
+        <div class="tickets-legend">
+          <span class="legend-item available">Disponible</span>
+          <span class="legend-item unavailable">No disponible</span>
+        </div>
         @if (ticketsLoading()) {
           <div class="tickets-loading">
             <app-spinner [size]="18" [stroke]="3" label="Cargando tickets" />
@@ -248,8 +452,8 @@
           </div>
         } @else {
           <div class="tickets-grid">
-            @for (ticket of tickets(); track ticket) {
-              <span class="ticket-chip">{{ ticket }}</span>
+            @for (ticket of ticketChips(); track ticket.number) {
+              <span class="ticket-chip" [class.unavailable]="!ticket.available">{{ ticket.number }}</span>
             }
           </div>
         }
@@ -267,4 +471,15 @@
     </div>
   </div>
 }
+
+<app-confirm-dialog
+  [open]="deleteModalOpen()"
+  [loading]="deletingId() !== null"
+  title="Confirmar eliminacion"
+  [message]="'Desea eliminar la rifa: ' + (deleteTarget()?.title ?? '') + '?'"
+  confirmText="Si, eliminar"
+  cancelText="Cancelar"
+  (confirm)="confirmDelete()"
+  (cancel)="closeDeleteModal()"
+/>
 

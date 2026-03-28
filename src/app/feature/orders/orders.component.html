@@ -1,0 +1,381 @@
+<div class="page-head">
+  <div>
+    <h1>Órdenes</h1>
+    <p>Compras de boletos y validación de pagos</p>
+  </div>
+</div>
+
+@if (error()) {
+  <div class="list-error" role="alert">{{ error() }}</div>
+}
+
+<section class="panel" aria-label="Listado de órdenes">
+  <div class="toolbar">
+    <div class="total">
+      Total: {{ total() }}
+      <span class="range"> | Mostrando {{ fromItem() }}-{{ toItem() }} de {{ total() }}</span>
+    </div>
+    <div class="toolbar-actions">
+      <div class="search">
+        <input
+          type="text"
+          placeholder="Buscar por cliente, cédula, rifa, estado..."
+          [value]="searchTerm()"
+          (input)="onSearchInput($any($event.target).value)"
+        />
+        @if (searchTerm().trim()) {
+          <button type="button" class="btn-inline" (click)="clearSearch()">Limpiar</button>
+        }
+      </div>
+      <button type="button" class="btn btn-ghost refresh" (click)="loadOrders()" [disabled]="loading()">
+        @if (loading()) {
+          <app-spinner [size]="16" [stroke]="3" label="Cargando" />
+          Cargando...
+        } @else {
+          Recargar
+        }
+      </button>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Cliente</th>
+          <th>Cédula</th>
+          <th>Rifa</th>
+          <th>Total</th>
+          <th>Comprobante</th>
+          <th>Estado</th>
+          <th>Creado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (!loading() && visibleOrders().length === 0) {
+          <tr>
+            <td colspan="9" class="empty">No hay pedidos para mostrar.</td>
+          </tr>
+        } @else {
+          @for (order of visibleOrders(); track order.id) {
+            <tr>
+              <td>{{ order.id }}</td>
+              <td>
+                <div class="cell-stack">
+                  <span class="cell-primary">{{ order.customer_name }}</span>
+                  <span class="cell-muted">{{ order.email }}</span>
+                </div>
+              </td>
+              <td>{{ order.cedula }}</td>
+              <td>{{ order.raffle?.title ?? '—' }}</td>
+              <td class="nowrap">{{ (order.total_amount | formatMoney) || '—' }}</td>
+              <td>
+                @if (proofMediaUrl(order); as vUrl) {
+                  <button
+                    type="button"
+                    class="voucher-trigger"
+                    (click)="openVoucherPreview(order, $event)"
+                    [title]="isImageProof(order) ? 'Ver imagen' : isPdfProof(order) ? 'Vista previa PDF' : 'Abrir archivo'"
+                    [attr.aria-label]="'Vista previa comprobante, pedido ' + order.id"
+                  >
+                    @if (isImageProof(order)) {
+                      <img class="voucher-thumb" [src]="vUrl" alt="" loading="lazy" />
+                    } @else if (isPdfProof(order)) {
+                      <span class="voucher-badge voucher-badge--pdf">
+                        <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>
+                        PDF
+                      </span>
+                    } @else {
+                      <span class="voucher-badge voucher-badge--file">
+                        <mat-icon aria-hidden="true">attach_file</mat-icon>
+                        Archivo
+                      </span>
+                    }
+                  </button>
+                } @else {
+                  <span class="voucher-none" aria-hidden="true">—</span>
+                }
+              </td>
+              <td>
+                <span [class]="statusClass(order.status)">{{ statusLabel(order.status) }}</span>
+              </td>
+              <td class="nowrap">{{ order.created_at | formatDateTime }}</td>
+              <td>
+                <button
+                  type="button"
+                  class="action-icon action-icon--view"
+                  (click)="openDetail(order)"
+                  aria-label="Ver pedido"
+                  title="Ver"
+                >
+                  <mat-icon aria-hidden="true">visibility</mat-icon>
+                </button>
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination">
+    <button type="button" class="btn-inline" (click)="goPrevPage()" [disabled]="loading() || currentPage() <= 1">
+      Anterior
+    </button>
+    @for (page of pageNumbers(); track page) {
+      <button
+        type="button"
+        class="btn-inline"
+        [class.active-page]="page === currentPage()"
+        (click)="goToPage(page)"
+        [disabled]="loading()"
+      >
+        {{ page }}
+      </button>
+    }
+    <button type="button" class="btn-inline" (click)="goNextPage()" [disabled]="loading() || currentPage() >= lastPage()">
+      Siguiente
+    </button>
+  </div>
+</section>
+
+@if (voucherPreviewOpen()) {
+  <div class="voucher-preview-backdrop" role="presentation" (click)="closeVoucherPreview()">
+    <div
+      class="voucher-preview-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Vista previa del comprobante"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="voucher-preview-head">
+        <span class="voucher-preview-title">Comprobante</span>
+        <div class="voucher-preview-head-actions">
+          @if (voucherPreviewUrl(); as previewHref) {
+            <a mat-button [href]="previewHref" target="_blank" rel="noopener noreferrer">
+              <mat-icon>open_in_new</mat-icon>
+              Abrir en pestaña
+            </a>
+          }
+          <button type="button" mat-icon-button (click)="closeVoucherPreview()" aria-label="Cerrar vista previa">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      </div>
+      <div class="voucher-preview-body">
+        @if (voucherPreviewKind() === 'image' && voucherPreviewUrl(); as imgUrl) {
+          <img [src]="imgUrl" class="voucher-preview-img" alt="Comprobante de pago" />
+        } @else if (voucherPreviewKind() === 'pdf') {
+          @if (safeVoucherPreviewFrameSrc(); as frameSrc) {
+            <iframe class="voucher-preview-iframe" [src]="frameSrc" title="Comprobante PDF"></iframe>
+          }
+        }
+      </div>
+    </div>
+  </div>
+}
+
+@if (detailOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeDetail()">
+    <mat-card class="order-detail-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <mat-card-header class="order-detail-card__header">
+        @if (orderDetail(); as hdr) {
+          <mat-card-title>Pedido #{{ hdr.id }}</mat-card-title>
+        } @else {
+          <mat-card-title>Pedido</mat-card-title>
+        }
+        @if (orderDetail(); as amt) {
+          <mat-card-subtitle class="order-detail-card__amount">{{ (amt.total_amount | formatMoney) || '—' }}</mat-card-subtitle>
+        }
+      </mat-card-header>
+
+      <mat-card-content class="order-detail-card__body">
+        @if (detailLoading()) {
+          <div class="modal-loading">
+            <app-spinner [size]="32" [stroke]="3" label="Cargando pedido" />
+            <span>Cargando…</span>
+          </div>
+        } @else if (detailError() && !orderDetail()) {
+          <div class="list-error">{{ detailError() }}</div>
+        } @else {
+          @if (orderDetail(); as detail) {
+          @if (detailError()) {
+            <div class="list-error order-detail-card__alert">{{ detailError() }}</div>
+          }
+
+          <div class="detail-grid">
+            <div class="detail-field">
+              <span class="detail-label">Estado</span>
+              <span [class]="statusClass(detail.status)">{{ statusLabel(detail.status) }}</span>
+            </div>
+            <div class="detail-field">
+              <span class="detail-label">Total</span>
+              <span class="detail-value">{{ (detail.total_amount | formatMoney) || '—' }}</span>
+            </div>
+            <div class="detail-field detail-field--wide">
+              <span class="detail-label">Cliente</span>
+              <span class="detail-value">{{ detail.customer_name }}</span>
+            </div>
+            <div class="detail-field">
+              <span class="detail-label">Cédula</span>
+              <span class="detail-value">{{ detail.cedula }}</span>
+            </div>
+            <div class="detail-field">
+              <span class="detail-label">Teléfono</span>
+              <span class="detail-value">{{ detail.phone }}</span>
+            </div>
+            <div class="detail-field detail-field--wide">
+              <span class="detail-label">Correo</span>
+              <span class="detail-value">{{ detail.email }}</span>
+            </div>
+            <div class="detail-field detail-field--wide">
+              <span class="detail-label">Rifa</span>
+              <span class="detail-value">{{ detail.raffle?.title ?? '—' }} (ID {{ detail.raffle_id }})</span>
+            </div>
+            <div class="detail-field detail-field--wide">
+              <span class="detail-label">Participante</span>
+              <span class="detail-value">
+                @if (detail.participant) {
+                  {{ detail.participant.name }} · {{ detail.participant.cedula }}
+                } @else {
+                  —
+                }
+              </span>
+            </div>
+            <div class="detail-field">
+              <span class="detail-label">Creado</span>
+              <span class="detail-value">{{ detail.created_at | formatDateTime }}</span>
+            </div>
+            <div class="detail-field">
+              <span class="detail-label">Vence</span>
+              <span class="detail-value">{{ detail.expires_at ? (detail.expires_at | formatDateTime) : '—' }}</span>
+            </div>
+            <div class="detail-field">
+              <span class="detail-label">Validado</span>
+              <span class="detail-value">{{ detail.validated_at ? (detail.validated_at | formatDateTime) : '—' }}</span>
+            </div>
+            @if (detail.admin_notes) {
+              <div class="detail-field detail-field--full">
+                <span class="detail-label">Notas admin</span>
+                <span class="detail-value detail-value--multiline">{{ detail.admin_notes }}</span>
+              </div>
+            }
+          </div>
+
+          @if (proofMediaUrl(detail); as proofUrl) {
+            <mat-divider class="order-detail-card__divider" />
+            <div class="proof-block">
+              <div class="proof-block__title">Comprobante de pago</div>
+              @if (isImageProof(detail)) {
+                <a class="proof-image-link" [href]="proofUrl" target="_blank" rel="noopener noreferrer">
+                  <img class="proof-image" [src]="proofUrl" alt="Comprobante de pago" />
+                </a>
+              } @else {
+                <a mat-stroked-button color="primary" [href]="proofUrl" target="_blank" rel="noopener noreferrer">
+                  <mat-icon>open_in_new</mat-icon>
+                  Abrir comprobante
+                </a>
+              }
+            </div>
+          }
+
+          @if (detail.tickets?.length) {
+            <mat-divider class="order-detail-card__divider" />
+            <div class="tickets-block">
+              <div class="tickets-block__title">Boletos ({{ detail.tickets!.length }})</div>
+              <div class="table-wrap table-wrap--nested">
+                <table class="table table--compact">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Número</th>
+                      <th>Estado</th>
+                      <th>Reservado hasta</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (t of detail.tickets!; track t.id) {
+                      <tr>
+                        <td>{{ t.id }}</td>
+                        <td class="mono">{{ t.number }}</td>
+                        <td>{{ statusLabel(t.status ?? '') }}</td>
+                        <td>{{ t.reserved_until ? (t.reserved_until | formatDateTime) : '—' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+
+          @if (canReview()) {
+            <mat-divider class="order-detail-card__divider" />
+            <div class="review-block">
+              <div class="review-block__title">Validar pago</div>
+              <p class="review-block__hint">Solo pedidos en «Pendiente validación». Aprobar confirma y marca boletos vendidos; rechazar libera números y cancela el pedido.</p>
+              <mat-form-field appearance="outline" class="review-notes-field" subscriptSizing="dynamic">
+                <mat-label>Notas del administrador</mat-label>
+                <textarea matInput rows="3" [formControl]="reviewNotes" placeholder="Opcional"></textarea>
+              </mat-form-field>
+              <div class="review-actions">
+                <button
+                  type="button"
+                  mat-flat-button
+                  class="review-btn review-btn--approve"
+                  (click)="approve()"
+                  [disabled]="reviewing()"
+                >
+                  Aprobar
+                </button>
+                <button
+                  type="button"
+                  mat-stroked-button
+                  color="warn"
+                  (click)="openRejectConfirm()"
+                  [disabled]="reviewing()"
+                >
+                  Rechazar
+                </button>
+              </div>
+            </div>
+          }
+          }
+        }
+      </mat-card-content>
+
+      <mat-card-actions class="order-detail-card__actions" align="end">
+        <button type="button" mat-button (click)="closeDetail()" [disabled]="reviewing()">Cerrar</button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+}
+
+@if (detailOpen() && reviewing()) {
+  <div
+    class="fullscreen-save-overlay"
+    role="alertdialog"
+    aria-modal="true"
+    aria-live="assertive"
+    aria-busy="true"
+    aria-label="Procesando pedido"
+  >
+    <div class="fullscreen-save-overlay__backdrop"></div>
+    <div class="fullscreen-save-overlay__panel">
+      <app-spinner [size]="40" [stroke]="3" label="Procesando pedido" />
+      <p class="fullscreen-save-overlay__text">Procesando…</p>
+    </div>
+  </div>
+}
+
+<app-confirm-dialog
+  [open]="rejectConfirmOpen()"
+  [loading]="reviewing()"
+  title="Rechazar pedido"
+  [message]="rejectConfirmMessage()"
+  confirmText="Sí, rechazar"
+  cancelText="Cancelar"
+  (confirm)="confirmReject()"
+  (cancel)="closeRejectConfirm()"
+/>

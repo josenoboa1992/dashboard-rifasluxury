@@ -1,0 +1,364 @@
+<div class="page-head">
+  <div>
+    <h1>Cuentas bancarias</h1>
+    <p>Cuentas para pagos y transferencias</p>
+  </div>
+  <button type="button" class="btn btn-primary" (click)="openCreate()">Nueva cuenta</button>
+</div>
+
+@if (error()) {
+  <div class="list-error" role="alert">{{ error() }}</div>
+}
+
+<section class="panel" aria-label="Listado de cuentas bancarias">
+  <div class="toolbar">
+    <div class="total">
+      Total: {{ total() }}
+      <span class="range"> | Mostrando {{ fromItem() }}-{{ toItem() }} de {{ total() }}</span>
+    </div>
+    <div class="toolbar-actions">
+      <div class="search">
+        <input
+          type="text"
+          placeholder="Buscar por banco, numero, titular..."
+          [value]="searchTerm()"
+          (input)="onSearchInput($any($event.target).value)"
+        />
+        @if (searchTerm().trim()) {
+          <button type="button" class="btn-inline" (click)="clearSearch()">Limpiar</button>
+        }
+      </div>
+      <button type="button" class="btn btn-ghost refresh" (click)="loadBankAccounts()" [disabled]="loading()">
+        @if (loading()) {
+          <app-spinner [size]="16" [stroke]="3" label="Cargando" />
+          Cargando...
+        } @else {
+          Recargar
+        }
+      </button>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Banco</th>
+          <th>Color</th>
+          <th>Tipo</th>
+          <th>Numero</th>
+          <th>Titular</th>
+          <th>Moneda</th>
+          <th>Activa</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (!loading() && visibleAccounts().length === 0) {
+          <tr>
+            <td colspan="9" class="empty">No hay cuentas para mostrar.</td>
+          </tr>
+        } @else {
+          @for (account of visibleAccounts(); track account.id) {
+            <tr>
+              <td>{{ account.id }}</td>
+              <td>
+                <div class="bank-cell">
+                  @if (getImageUrl(account); as logoUrl) {
+                    <img class="bank-avatar" [src]="logoUrl" [alt]="'Logo ' + account.bank_name" />
+                  } @else {
+                    <div
+                      class="bank-avatar bank-avatar--placeholder"
+                      [style.background-color]="accountRowColor(account)"
+                      [attr.aria-hidden]="true"
+                    >
+                      {{ bankInitialLabel(account.bank_name) }}
+                    </div>
+                  }
+                  <span class="bank-cell__name">{{ account.bank_name }}</span>
+                </div>
+              </td>
+              <td>
+                <span
+                  class="color-dot"
+                  [style.background-color]="accountRowColor(account)"
+                  [matTooltip]="account.color || 'Sin color'"
+                  matTooltipPosition="above"
+                ></span>
+              </td>
+              <td>{{ account.account_type }}</td>
+              <td>{{ account.account_number }}</td>
+              <td>{{ account.account_holder_name }}</td>
+              <td>{{ account.currency }}</td>
+              <td>{{ account.is_active ? 'Si' : 'No' }}</td>
+              <td>
+                <div class="row-actions">
+                  <button
+                    type="button"
+                    class="action-icon action-icon--view"
+                    (click)="openView(account)"
+                    aria-label="Ver cuenta"
+                    title="Ver"
+                  >
+                    <mat-icon aria-hidden="true">visibility</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="action-icon action-icon--edit"
+                    (click)="openEdit(account)"
+                    aria-label="Editar cuenta"
+                    title="Editar"
+                  >
+                    <mat-icon aria-hidden="true">edit</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="action-icon action-icon--delete"
+                    (click)="remove(account)"
+                    [disabled]="deletingId() === account.id"
+                    aria-label="Eliminar cuenta"
+                    title="Eliminar"
+                  >
+                    @if (deletingId() === account.id) {
+                      <mat-icon aria-hidden="true" class="action-icon-spin">autorenew</mat-icon>
+                    } @else {
+                      <mat-icon aria-hidden="true">delete</mat-icon>
+                    }
+                  </button>
+                </div>
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination">
+    <button type="button" class="btn-inline" (click)="goPrevPage()" [disabled]="loading() || currentPage() <= 1">
+      Anterior
+    </button>
+    @for (page of pageNumbers(); track page) {
+      <button
+        type="button"
+        class="btn-inline"
+        [class.active-page]="page === currentPage()"
+        (click)="goToPage(page)"
+        [disabled]="loading()"
+      >
+        {{ page }}
+      </button>
+    }
+    <button type="button" class="btn-inline" (click)="goNextPage()" [disabled]="loading() || currentPage() >= lastPage()">
+      Siguiente
+    </button>
+  </div>
+</section>
+
+@if (modalOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeModal()">
+    <mat-card class="bank-dialog" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <mat-card-header class="bank-dialog__header">
+        <mat-card-title>{{ modalTitle }}</mat-card-title>
+      </mat-card-header>
+
+      @if (modalDetailLoading()) {
+        <mat-card-content class="bank-dialog__body">
+          <div class="modal-loading">
+            <app-spinner [size]="32" [stroke]="3" label="Cargando cuenta" />
+            <span>Cargando…</span>
+          </div>
+        </mat-card-content>
+      } @else {
+        <form [formGroup]="accountForm" (ngSubmit)="save()" class="bank-dialog-form">
+          <mat-card-content class="bank-dialog__body">
+            @if (modalError()) {
+              <div class="list-error bank-dialog__alert">{{ modalError() }}</div>
+            }
+            <div class="dialog-grid">
+              <mat-form-field appearance="outline" class="dialog-field">
+                <mat-label>Nombre del banco</mat-label>
+                <input matInput formControlName="bank_name" placeholder="Ej: BHD" autocomplete="organization" />
+                @if (isInvalid('bank_name')) {
+                  <mat-error>{{ getErrorMessage('bank_name') }}</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="dialog-field">
+                <mat-label>Tipo de cuenta</mat-label>
+                <input matInput formControlName="account_type" placeholder="Ej: Cuenta de ahorros" />
+                @if (isInvalid('account_type')) {
+                  <mat-error>{{ getErrorMessage('account_type') }}</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="dialog-field">
+                <mat-label>Numero de cuenta</mat-label>
+                <input matInput formControlName="account_number" autocomplete="off" />
+                @if (isInvalid('account_number')) {
+                  <mat-error>{{ getErrorMessage('account_number') }}</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="dialog-field">
+                <mat-label>Titular</mat-label>
+                <input matInput formControlName="account_holder_name" autocomplete="name" />
+                @if (isInvalid('account_holder_name')) {
+                  <mat-error>{{ getErrorMessage('account_holder_name') }}</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="dialog-field">
+                <mat-label>ID titular (cedula)</mat-label>
+                <input matInput formControlName="holder_id" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="dialog-field">
+                <mat-label>Moneda</mat-label>
+                <input matInput formControlName="currency" placeholder="DOP" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="dialog-field">
+                <mat-label>Orden</mat-label>
+                <input matInput type="number" formControlName="sort_order" min="0" />
+                @if (isInvalid('sort_order')) {
+                  <mat-error>{{ getErrorMessage('sort_order') }}</mat-error>
+                }
+              </mat-form-field>
+
+              <div class="dialog-field dialog-field--toggle">
+                <mat-slide-toggle formControlName="is_active" color="primary">Cuenta activa</mat-slide-toggle>
+              </div>
+            </div>
+
+            <mat-divider class="bank-dialog__divider" />
+
+            <div class="color-block">
+              <div class="color-block__title">Color de marca</div>
+              <p class="color-block__hint">Elige un tono de la paleta o usa el selector y el codigo hex.</p>
+              <div class="palette" role="list">
+                @for (hex of paletteColors; track hex) {
+                  <button
+                    type="button"
+                    class="palette__swatch"
+                    [class.palette__swatch--on]="isPaletteActive(hex)"
+                    [style.background-color]="hex"
+                    [disabled]="modalMode() === 'view'"
+                    (click)="pickPaletteColor(hex)"
+                    [attr.aria-label]="'Color ' + hex"
+                    [attr.aria-pressed]="isPaletteActive(hex)"
+                  ></button>
+                }
+              </div>
+              <div class="color-row">
+                <label class="color-native-label">
+                  <span class="color-native-label__text">Selector</span>
+                  <input
+                    type="color"
+                    class="color-native"
+                    [value]="colorPickerValue()"
+                    (input)="onNativeColorInput($event)"
+                    [disabled]="modalMode() === 'view'"
+                    [attr.aria-label]="'Selector de color, valor ' + colorPickerValue()"
+                  />
+                </label>
+                <mat-form-field appearance="outline" class="color-hex-field" subscriptSizing="dynamic">
+                  <mat-label>Codigo hexadecimal</mat-label>
+                  <input matInput formControlName="color" placeholder="#04057a" />
+                  <mat-hint>Opcional; se muestra en listados y avatares sin logo</mat-hint>
+                </mat-form-field>
+              </div>
+            </div>
+
+            <mat-divider class="bank-dialog__divider" />
+
+            <div class="upload-block">
+              <div class="upload-block__title">Logo del banco</div>
+              <p class="upload-block__hint">jpg, png, webp o gif (max. 5 MB recomendado).</p>
+              <input
+                #photoInput
+                type="file"
+                class="upload-block__input"
+                accept=".jpg,.jpeg,.png,.webp,.gif"
+                (change)="onPhotoSelected($event)"
+                [disabled]="modalMode() === 'view'"
+              />
+              <button
+                type="button"
+                mat-stroked-button
+                color="primary"
+                class="upload-block__btn"
+                (click)="photoInput.click()"
+                [disabled]="modalMode() === 'view'"
+              >
+                <mat-icon>upload_file</mat-icon>
+                Elegir archivo
+              </button>
+              @if (selectedPhotoFile(); as f) {
+                <span class="upload-block__file">{{ f.name }}</span>
+              } @else {
+                <span class="upload-block__file upload-block__file--muted">Ningun archivo nuevo</span>
+              }
+              @if (currentImageUrl()) {
+                <div class="logo-preview">
+                  <span class="logo-preview__label">Vista previa actual</span>
+                  <img [src]="currentImageUrl()!" alt="Logo del banco" />
+                </div>
+              }
+            </div>
+          </mat-card-content>
+
+          <mat-card-actions class="bank-dialog__actions" align="end">
+            <button type="button" mat-button (click)="closeModal()">
+              @if (modalMode() === 'view') {
+                Cerrar
+              } @else {
+                Cancelar
+              }
+            </button>
+            @if (modalMode() !== 'view') {
+              <button
+                mat-flat-button
+                color="primary"
+                class="bank-dialog__save"
+                type="submit"
+                [disabled]="accountForm.invalid || modalSubmitting()"
+              >
+                Guardar
+              </button>
+            }
+          </mat-card-actions>
+        </form>
+      }
+    </mat-card>
+  </div>
+}
+
+@if (modalOpen() && modalSubmitting()) {
+  <div
+    class="fullscreen-save-overlay"
+    role="alertdialog"
+    aria-modal="true"
+    aria-live="assertive"
+    aria-busy="true"
+    aria-label="Guardando cuenta"
+  >
+    <div class="fullscreen-save-overlay__backdrop"></div>
+    <div class="fullscreen-save-overlay__panel">
+      <app-spinner [size]="40" [stroke]="3" label="Guardando cuenta" />
+      <p class="fullscreen-save-overlay__text">Guardando cambios…</p>
+    </div>
+  </div>
+}
+
+<app-confirm-dialog
+  [open]="deleteConfirmOpen()"
+  [loading]="deletingId() !== null"
+  title="Confirmar eliminacion"
+  [message]="deleteConfirmMessage()"
+  confirmText="Si, eliminar"
+  cancelText="Cancelar"
+  (confirm)="confirmDelete()"
+  (cancel)="closeDeleteConfirm()"
+/>

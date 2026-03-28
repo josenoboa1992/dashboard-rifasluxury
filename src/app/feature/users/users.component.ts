@@ -4,12 +4,15 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { finalize } from 'rxjs';
 
 import { SpinnerComponent } from '../../core/ui/spinner/spinner.component';
+import { ConfirmDialogComponent } from '../../core/ui/confirm-dialog/confirm-dialog.component';
+import { ToastService } from '../../core/ui/toast/toast.service';
+import { MatIconModule } from '@angular/material/icon';
 import { User, UserPayload, UsersService } from '../../core/users/services/users.service';
 
 @Component({
   selector: 'app-users',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, SpinnerComponent],
+  imports: [CommonModule, ReactiveFormsModule, SpinnerComponent, MatIconModule, ConfirmDialogComponent],
   templateUrl: './users.component.html',
   styleUrl: './users.component.css',
 })
@@ -47,12 +50,22 @@ export class UsersComponent {
   readonly activeUserId = signal<number | null>(null);
   readonly userSubmitting = signal(false);
   readonly deletingUserId = signal<number | null>(null);
+  readonly deleteConfirmOpen = signal(false);
+  readonly deleteTarget = signal<User | null>(null);
   readonly formError = signal<string | null>(null);
   userForm!: FormGroup;
+
+  readonly deleteConfirmMessage = computed(() => {
+    const u = this.deleteTarget();
+    return u
+      ? `¿Eliminar a ${u.name}? Esta accion no se puede deshacer.`
+      : '';
+  });
 
   constructor(
     private readonly usersService: UsersService,
     private readonly fb: FormBuilder,
+    private readonly toast: ToastService,
   ) {}
 
   get isViewMode(): boolean {
@@ -208,8 +221,8 @@ export class UsersComponent {
       });
   }
 
-  closeUserModal(): void {
-    if (this.userSubmitting()) return;
+  closeUserModal(force: boolean = false): void {
+    if (!force && this.userSubmitting()) return;
     this.userModalOpen.set(false);
     this.userForm.enable();
     this.formError.set(null);
@@ -247,8 +260,9 @@ export class UsersComponent {
     request$
       .pipe(finalize(() => this.userSubmitting.set(false)))
       .subscribe({
-        next: () => {
-          this.closeUserModal();
+        next: (res) => {
+          this.toast.successFromApiResponse(res, isCreate ? 'Usuario creado con éxito' : 'Guardado con éxito');
+          this.closeUserModal(true);
           this.loadUsers();
         },
         error: (err) => {
@@ -263,21 +277,39 @@ export class UsersComponent {
 
   deleteUser(user: User): void {
     if (this.deletingUserId() === user.id) return;
-    const confirmed = window.confirm(`¿Eliminar a ${user.name}? Esta acción no se puede deshacer.`);
-    if (!confirmed) return;
+    this.deleteTarget.set(user);
+    this.deleteConfirmOpen.set(true);
+  }
 
+  closeDeleteConfirm(): void {
+    if (this.deletingUserId() !== null) return;
+    this.deleteConfirmOpen.set(false);
+    this.deleteTarget.set(null);
+  }
+
+  confirmDeleteUser(): void {
+    const user = this.deleteTarget();
+    if (!user || this.deletingUserId() === user.id) return;
     this.deletingUserId.set(user.id);
     this.usersService
       .deleteUser(user.id)
       .pipe(finalize(() => this.deletingUserId.set(null)))
       .subscribe({
-        next: () => this.loadUsers(),
+        next: (res) => {
+          this.toast.successFromApiResponse(res, 'Usuario eliminado con éxito');
+          this.deleteConfirmOpen.set(false);
+          this.deleteTarget.set(null);
+          this.loadUsers();
+        },
         error: (err) => {
           const message =
             err?.error?.message ||
             err?.error?.detail ||
             'No fue posible eliminar el usuario.';
           this.usersError.set(String(message));
+          this.toast.error(String(message));
+          this.deleteConfirmOpen.set(false);
+          this.deleteTarget.set(null);
         },
       });
   }

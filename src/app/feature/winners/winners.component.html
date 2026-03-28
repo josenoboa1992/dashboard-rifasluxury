@@ -1,0 +1,436 @@
+<div class="page-head">
+  <div>
+    <h1>Ganadores</h1>
+    <p>Publicar y gestionar ganadores publicados por rifa</p>
+  </div>
+  <div class="head-actions">
+    <button
+      type="button"
+      class="btn btn-primary"
+      (click)="openAddModal()"
+      [disabled]="!selectedRaffle() || rafflesLoading()"
+    >
+      Publicar ganador
+    </button>
+    <button
+      type="button"
+      class="btn btn-ghost"
+      (click)="openBulkModal()"
+      [disabled]="!selectedRaffle() || rafflesLoading()"
+    >
+      Publicar varios
+    </button>
+  </div>
+</div>
+
+@if (rafflesError()) {
+  <div class="list-error" role="alert">{{ rafflesError() }}</div>
+}
+
+<section class="panel raffle-picker" aria-label="Seleccionar rifa">
+  <label class="picker-label">
+    Rifa
+    <select
+      class="raffle-select"
+      [value]="selectedRaffle()?.id ?? ''"
+      (change)="onRaffleSelectedFromSelect($event)"
+      [disabled]="rafflesLoading()"
+    >
+      <option value="">Seleccionar rifa</option>
+      @for (r of raffles(); track r.id) {
+        <option [value]="r.id">{{ raffleOptionLabel(r) }}</option>
+      }
+    </select>
+  </label>
+  @if (rafflesLoading()) {
+    <span class="picker-hint">
+      <app-spinner [size]="16" [stroke]="3" label="Cargando rifas" />
+      Cargando rifas…
+    </span>
+  }
+</section>
+
+@if (!selectedRaffle()) {
+  <p class="empty-hint">Elige una rifa para ver o publicar ganadores.</p>
+} @else {
+  @if (listError()) {
+    <div class="list-error" role="alert">{{ listError() }}</div>
+  }
+
+  <section class="panel" aria-label="Listado de ganadores">
+    <div class="toolbar">
+      <div class="total">
+        Total: {{ total() }}
+        <span class="range"> | Mostrando {{ fromItem() }}-{{ toItem() }} de {{ total() }}</span>
+      </div>
+      <div class="toolbar-actions">
+        <button type="button" class="btn btn-ghost refresh" (click)="loadWinners()" [disabled]="listLoading()">
+          @if (listLoading()) {
+            <app-spinner [size]="16" [stroke]="3" label="Cargando" />
+            Cargando…
+          } @else {
+            Recargar
+          }
+        </button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Boleto</th>
+            <th>Nombre</th>
+            <th>Premio</th>
+            <th>Foto</th>
+            <th>Sorteo</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (!listLoading() && winners().length === 0) {
+            <tr>
+              <td colspan="7" class="empty">Aún no hay ganadores publicados para esta rifa.</td>
+            </tr>
+          } @else {
+            @for (w of winners(); track w.id) {
+              <tr>
+                <td>{{ w.id }}</td>
+                <td>{{ getTicketNumber(w) }}</td>
+                <td>{{ w.display_name || '—' }}</td>
+                <td>{{ w.prize_label }}</td>
+                <td>
+                  @if (w.portrait_image?.url) {
+                    <img
+                      class="thumb"
+                      [src]="w.portrait_image!.url"
+                      [alt]="'Retrato ganador ' + w.id"
+                      width="40"
+                      height="40"
+                    />
+                  } @else {
+                    <span class="muted">—</span>
+                  }
+                </td>
+                <td>{{ w.drawn_at | formatDateTime }}</td>
+                <td>
+                  <div class="row-actions">
+                    <button
+                      type="button"
+                      class="action-icon action-icon--edit"
+                      (click)="openEditModal(w)"
+                      aria-label="Editar ganador"
+                      title="Editar"
+                    >
+                      <mat-icon aria-hidden="true">edit</mat-icon>
+                    </button>
+                    <button
+                      type="button"
+                      class="action-icon action-icon--delete"
+                      (click)="requestDeleteWinner(w)"
+                      [disabled]="deletingWinnerId() === w.id"
+                      aria-label="Eliminar ganador"
+                      title="Eliminar"
+                    >
+                      @if (deletingWinnerId() === w.id) {
+                        <mat-icon aria-hidden="true" class="action-icon-spin">autorenew</mat-icon>
+                      } @else {
+                        <mat-icon aria-hidden="true">delete</mat-icon>
+                      }
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if (lastPage() > 1) {
+      <div class="pagination">
+        <button type="button" class="btn-inline" (click)="goPrevPage()" [disabled]="listLoading() || currentPage() <= 1">
+          Anterior
+        </button>
+
+        @for (page of pageNumbers(); track page) {
+          <button
+            type="button"
+            class="btn-inline"
+            [class.active-page]="page === currentPage()"
+            (click)="goToPage(page)"
+            [disabled]="listLoading()"
+          >
+            {{ page }}
+          </button>
+        }
+
+        <button
+          type="button"
+          class="btn-inline"
+          (click)="goNextPage()"
+          [disabled]="listLoading() || currentPage() >= lastPage()"
+        >
+          Siguiente
+        </button>
+      </div>
+    }
+  </section>
+}
+
+@if (addModalOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeAddModal()">
+    <div class="modal modal--wide" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-h">Publicar ganador</div>
+      <div class="modal-b">
+        @if (addModalError()) {
+          <div class="list-error">{{ addModalError() }}</div>
+        }
+        @if (photoRequiredSingle()) {
+          <p class="hint">Esta rifa tiene varios ganadores: la foto es obligatoria (máx. 5 MB).</p>
+        }
+
+        <form [formGroup]="addForm" (ngSubmit)="submitAdd()">
+          <div class="form-grid">
+            <label class="full">
+              Número de boleto *
+              <div class="inline-field">
+                <input
+                  class="input-grow"
+                  type="text"
+                  formControlName="number"
+                  autocomplete="off"
+                  (input)="onAddNumberInput()"
+                />
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-sm shrink-0"
+                  (click)="lookupAddTicketNumber()"
+                  [disabled]="addTicketLookupLoading()"
+                >
+                  @if (addTicketLookupLoading()) {
+                    <app-spinner [size]="14" [stroke]="2" label="Buscando" />
+                    Buscando…
+                  } @else {
+                    Completar datos
+                  }
+                </button>
+              </div>
+            </label>
+            @if (addTicketLookupError()) {
+              <div class="lookup-err full">{{ addTicketLookupError() }}</div>
+            }
+            <label>
+              Premio *
+              <input type="text" formControlName="prize_label" autocomplete="off" />
+            </label>
+            <label class="full">
+              Nombre a mostrar
+              <input type="text" formControlName="display_name" placeholder="Se completa al buscar el boleto" />
+            </label>
+            <label class="check full">
+              <input type="checkbox" formControlName="mark_drawn" />
+              Marcar rifa como sorteada (status drawn)
+            </label>
+            <label class="full">
+              Foto {{ photoRequiredSingle() ? '*' : '(opcional)' }}
+              <input type="file" accept="image/*" (change)="onAddPhotoChange($event)" />
+            </label>
+            @if (addPhotoFile(); as f) {
+              <p class="file-name full">{{ f.name }}</p>
+            }
+          </div>
+
+          <div class="modal-f">
+            <button type="button" class="btn btn-ghost" (click)="closeAddModal()">Cancelar</button>
+            <button type="submit" class="btn btn-primary" [disabled]="addForm.invalid || addSubmitting()">
+              Publicar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+@if (addModalOpen() && addSubmitting()) {
+  <div class="fullscreen-save-overlay" role="alertdialog" aria-modal="true" aria-busy="true" aria-label="Publicando">
+    <div class="fullscreen-save-overlay__backdrop"></div>
+    <div class="fullscreen-save-overlay__panel">
+      <app-spinner [size]="40" [stroke]="3" label="Publicando" />
+      <p class="fullscreen-save-overlay__text">Publicando ganador…</p>
+    </div>
+  </div>
+}
+
+@if (editModalOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeEditModal()">
+    <div class="modal modal--wide" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-h">Editar ganador</div>
+      <div class="modal-b">
+        @if (editModalError()) {
+          <div class="list-error">{{ editModalError() }}</div>
+        }
+        @if (selectedRaffle(); as sr) {
+          @if (sr.winners_count > 1) {
+            <p class="hint">
+              Con varios ganadores, si este registro aún no tenía foto, debes adjuntarla aquí.
+            </p>
+          }
+        }
+
+        <form [formGroup]="editForm" (ngSubmit)="submitEdit()">
+          <div class="form-grid">
+            <label class="full">
+              Premio *
+              <input type="text" formControlName="prize_label" />
+            </label>
+            <label class="full">
+              Nombre a mostrar
+              <input type="text" formControlName="display_name" />
+            </label>
+            <label class="full">
+              Nueva foto (opcional)
+              <input type="file" accept="image/*" (change)="onEditPhotoChange($event)" />
+            </label>
+            @if (editPhotoFile(); as f) {
+              <p class="file-name full">{{ f.name }}</p>
+            }
+          </div>
+
+          <div class="modal-f">
+            <button type="button" class="btn btn-ghost" (click)="closeEditModal()">Cancelar</button>
+            <button type="submit" class="btn btn-primary" [disabled]="editForm.invalid || editSubmitting()">
+              Guardar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+@if (editModalOpen() && editSubmitting()) {
+  <div class="fullscreen-save-overlay" role="alertdialog" aria-modal="true" aria-busy="true" aria-label="Guardando">
+    <div class="fullscreen-save-overlay__backdrop"></div>
+    <div class="fullscreen-save-overlay__panel">
+      <app-spinner [size]="40" [stroke]="3" label="Guardando" />
+      <p class="fullscreen-save-overlay__text">Guardando cambios…</p>
+    </div>
+  </div>
+}
+
+@if (bulkModalOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeBulkModal()">
+    <div class="modal modal--wide" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-h">Publicar varios ganadores</div>
+      <div class="modal-b">
+        @if (bulkModalError()) {
+          <div class="list-error">{{ bulkModalError() }}</div>
+        }
+        @if (photoRequiredBulk()) {
+          <p class="hint">Cada fila debe incluir foto (varios ganadores o varias filas).</p>
+        }
+
+        <div class="bulk-toolbar">
+          <label class="check">
+            <input type="checkbox" [checked]="bulkMarkDrawn()" (change)="setBulkMarkDrawn($event)" />
+            Marcar rifa como sorteada
+          </label>
+          <button type="button" class="btn btn-ghost btn-sm" (click)="addBulkRow()">+ Fila</button>
+        </div>
+
+        <div class="bulk-rows">
+          @for (row of bulkRows(); track $index) {
+            <div class="bulk-row">
+              <div class="bulk-row-head">
+                <span>Ganador {{ $index + 1 }}</span>
+                @if (bulkRows().length > 1) {
+                  <button type="button" class="btn-inline danger" (click)="removeBulkRow($index)">Quitar</button>
+                }
+              </div>
+              <div class="form-grid tight">
+                <label class="full">
+                  Boleto *
+                  <div class="inline-field">
+                    <input
+                      class="input-grow"
+                      type="text"
+                      [value]="row.number"
+                      (input)="onBulkFieldInput($index, 'number', $event)"
+                    />
+                    <button
+                      type="button"
+                      class="btn btn-ghost btn-sm shrink-0"
+                      (click)="lookupBulkRow($index)"
+                      [disabled]="bulkLookupRowIndex() === $index"
+                    >
+                      @if (bulkLookupRowIndex() === $index) {
+                        <app-spinner [size]="14" [stroke]="2" label="Buscando" />
+                        …
+                      } @else {
+                        Completar
+                      }
+                    </button>
+                  </div>
+                </label>
+                @if (row.lookupError) {
+                  <div class="lookup-err full">{{ row.lookupError }}</div>
+                }
+                <label>
+                  Premio *
+                  <input
+                    type="text"
+                    [value]="row.prize_label"
+                    (input)="onBulkFieldInput($index, 'prize_label', $event)"
+                  />
+                </label>
+                <label class="full">
+                  Nombre
+                  <input
+                    type="text"
+                    [value]="row.display_name"
+                    (input)="onBulkFieldInput($index, 'display_name', $event)"
+                  />
+                </label>
+                <label class="full">
+                  Foto {{ photoRequiredBulk() ? '*' : '(opc.)' }}
+                  <input type="file" accept="image/*" (change)="onBulkPhotoChange($index, $event)" />
+                </label>
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="modal-f">
+          <button type="button" class="btn btn-ghost" (click)="closeBulkModal()">Cancelar</button>
+          <button type="button" class="btn btn-primary" (click)="submitBulk()" [disabled]="bulkSubmitting()">
+            Publicar todos
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@if (bulkModalOpen() && bulkSubmitting()) {
+  <div class="fullscreen-save-overlay" role="alertdialog" aria-modal="true" aria-busy="true" aria-label="Publicando">
+    <div class="fullscreen-save-overlay__backdrop"></div>
+    <div class="fullscreen-save-overlay__panel">
+      <app-spinner [size]="40" [stroke]="3" label="Publicando" />
+      <p class="fullscreen-save-overlay__text">Publicando ganadores…</p>
+    </div>
+  </div>
+}
+
+<app-confirm-dialog
+  [open]="deleteConfirmOpen()"
+  [loading]="deletingWinnerId() !== null"
+  title="Confirmar eliminación"
+  [message]="deleteConfirmMessage()"
+  confirmText="Sí, eliminar"
+  cancelText="Cancelar"
+  (confirm)="confirmDeleteWinner()"
+  (cancel)="closeDeleteConfirm()"
+/>

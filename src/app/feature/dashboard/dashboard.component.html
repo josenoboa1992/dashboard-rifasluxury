@@ -1,5 +1,15 @@
-<div class="shell" [class.sidebar-collapsed]="sidebarCollapsed()">
-  <aside class="sidebar" aria-label="Navegación principal">
+<div
+  class="shell"
+  [class.sidebar-collapsed]="sidebarCollapsed()"
+  [class.shell--mobile-nav-open]="mobileNavOpen()"
+>
+  <div
+    class="sidebar-backdrop"
+    role="presentation"
+    aria-hidden="true"
+    (click)="closeMobileNav()"
+  ></div>
+  <aside class="sidebar" aria-label="Navegación principal" (click)="$event.stopPropagation()">
     <div class="brand">
       <a class="brand-link" href="/dashboard" routerLink="/dashboard">
         <img src="/logo-rifa.png" alt="Rifas Luxury RD" width="200" height="120" />
@@ -8,27 +18,28 @@
     <nav id="app-sidebar-nav" class="nav-scroll">
       <div class="nav-section">
         <div class="nav-label">General</div>
-        <button
-          type="button"
+        <a
           class="nav-item"
+          routerLink="/dashboard"
+          [replaceUrl]="true"
           [class.active]="currentView() === 'dashboard'"
           [attr.aria-current]="currentView() === 'dashboard' ? 'page' : null"
-          (click)="openView('dashboard')"
         >
           <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
             <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z" stroke-linejoin="round" />
           </svg>
           <span class="ni-label">Dashboard</span>
-        </button>
+        </a>
       </div>
       <div class="nav-section">
         <div class="nav-label">Gestión</div>
-        <button
-          type="button"
+        <a
           class="nav-item"
+          routerLink="/dashboard"
+          [queryParams]="{ view: 'users' }"
+          [replaceUrl]="true"
           [class.active]="currentView() === 'users'"
           [attr.aria-current]="currentView() === 'users' ? 'page' : null"
-          (click)="openView('users')"
         >
           <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -39,13 +50,14 @@
           <svg class="ni-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path d="m9 18 6-6-6-6" />
           </svg>
-        </button>
-        <button
-          type="button"
+        </a>
+        <a
           class="nav-item"
+          routerLink="/dashboard"
+          [queryParams]="{ view: 'participants' }"
+          [replaceUrl]="true"
           [class.active]="currentView() === 'participants'"
           [attr.aria-current]="currentView() === 'participants' ? 'page' : null"
-          (click)="openView('participants')"
         >
           <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -54,87 +66,109 @@
             <path d="M16 3.13a4 4 0 0 1 0 7.75" />
           </svg>
           <span class="ni-label">Participantes</span>
-        </button>
-        <button type="button" class="nav-item">
+        </a>
+        <a
+          class="nav-item"
+          routerLink="/dashboard"
+          [queryParams]="{ view: 'bank-accounts' }"
+          [replaceUrl]="true"
+          title="Cuentas bancarias"
+          [class.active]="currentView() === 'bank-accounts'"
+          [attr.aria-current]="currentView() === 'bank-accounts' ? 'page' : null"
+        >
           <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" stroke-linejoin="round" />
+            <rect x="2" y="5" width="20" height="14" rx="2" />
+            <path d="M2 10h20" />
+            <path d="M6 15h4" />
           </svg>
-          <span class="ni-label">Roles</span>
-        </button>
-        <button type="button" class="nav-item">
+          <span class="ni-label">Cuentas bancarias</span>
+        </a>
+        <a
+          class="nav-item"
+          routerLink="/dashboard"
+          [queryParams]="{ view: 'orders' }"
+          [replaceUrl]="true"
+          [class.active]="currentView() === 'orders'"
+          [attr.aria-current]="currentView() === 'orders' ? 'page' : null"
+        >
           <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-            <path d="M12 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" />
-            <path d="M4 20a8 8 0 0 1 16 0" />
+            <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+            <path d="M3 6h18" />
+            <path d="M16 10a4 4 0 0 1-8 0" />
           </svg>
-          <span class="ni-label">Permisos</span>
-        </button>
+          <span class="ni-label">Órdenes</span>
+        </a>
       </div>
       <div class="nav-section">
         <div class="nav-label">Catálogos</div>
-        <button
-          type="button"
+        <a
           class="nav-item"
+          routerLink="/dashboard"
+          [queryParams]="{ view: 'categories' }"
+          [replaceUrl]="true"
           [class.active]="currentView() === 'categories'"
           [attr.aria-current]="currentView() === 'categories' ? 'page' : null"
-          (click)="openView('categories')"
         >
           <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
             <path d="M4 6h16M4 12h16M4 18h16" />
           </svg>
           <span class="ni-label">Categorias</span>
-        </button>
-        <button
-          type="button"
+        </a>
+        <a
           class="nav-item"
+          routerLink="/dashboard"
+          [queryParams]="{ view: 'raffles' }"
+          [replaceUrl]="true"
           [class.active]="currentView() === 'raffles'"
           [attr.aria-current]="currentView() === 'raffles' ? 'page' : null"
-          (click)="openView('raffles')"
         >
           <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
             <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" />
             <path d="M3 9V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2" />
           </svg>
           <span class="ni-label">Rifas</span>
-        </button>
-        <button type="button" class="nav-item">
+        </a>
+        <a
+          class="nav-item"
+          routerLink="/dashboard"
+          [queryParams]="{ view: 'winners' }"
+          [replaceUrl]="true"
+          [class.active]="currentView() === 'winners'"
+          [attr.aria-current]="currentView() === 'winners' ? 'page' : null"
+        >
+          <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+            <path d="M12 15a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+          </svg>
+          <span class="ni-label">Ganadores</span>
+        </a>
+        <a
+          class="nav-item"
+          routerLink="/dashboard"
+          [queryParams]="{ view: 'prizes' }"
+          [replaceUrl]="true"
+          [class.active]="currentView() === 'prizes'"
+          [attr.aria-current]="currentView() === 'prizes' ? 'page' : null"
+        >
           <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="2" />
             <path d="M3 9h18M9 21V9" />
           </svg>
           <span class="ni-label">Premios</span>
-        </button>
-        <button type="button" class="nav-item">
+        </a>
+        <a
+          class="nav-item"
+          routerLink="/dashboard"
+          [queryParams]="{ view: 'numbers' }"
+          [replaceUrl]="true"
+          [class.active]="currentView() === 'numbers'"
+          [attr.aria-current]="currentView() === 'numbers' ? 'page' : null"
+        >
           <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
             <path d="M12 2v20M2 12h20" />
           </svg>
           <span class="ni-label">Números</span>
-        </button>
-      </div>
-      <div class="nav-section">
-        <div class="nav-label">Operaciones</div>
-        <button type="button" class="nav-item">
-          <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-            <rect x="3" y="4" width="18" height="18" rx="2" />
-            <path d="M16 2v4M8 2v4M3 10h18" />
-          </svg>
-          <span class="ni-label">Sorteos</span>
-        </button>
-        <button type="button" class="nav-item">
-          <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-            <path d="M12 8v4l3 3M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z" />
-          </svg>
-          <span class="ni-label">Pagos</span>
-        </button>
-      </div>
-      <div class="nav-section">
-        <div class="nav-label">Seguridad</div>
-        <button type="button" class="nav-item">
-          <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z" />
-            <path d="M14 2v6h6M10 13h4M10 17h4M8 9h1" />
-          </svg>
-          <span class="ni-label">Auditoría</span>
-        </button>
+        </a>
       </div>
     </nav>
   </aside>
@@ -145,32 +179,41 @@
         <button
           type="button"
           class="icon-btn"
-          (click)="toggleSidebar()"
-          [attr.aria-expanded]="!sidebarCollapsed()"
+          (click)="toggleSidebar(); $event.stopPropagation()"
+          [attr.aria-expanded]="isMobileLayout() ? mobileNavOpen() : !sidebarCollapsed()"
           aria-controls="app-sidebar-nav"
-          title="Contraer menú"
+          [attr.title]="
+            isMobileLayout()
+              ? (mobileNavOpen() ? 'Cerrar menú' : 'Abrir menú')
+              : sidebarCollapsed()
+                ? 'Expandir menú'
+                : 'Contraer menú'
+          "
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            @if (sidebarCollapsed()) {
+            @if (isMobileLayout()) {
+              @if (mobileNavOpen()) {
+                <path d="M18 6 6 18M6 6l12 12" stroke-linecap="round" />
+              } @else {
+                <path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round" />
+              }
+            } @else if (sidebarCollapsed()) {
               <path d="M9 18 15 12 9 6" />
             } @else {
               <path d="M15 18 9 12l6-6" />
             }
           </svg>
-          <span class="sr-only">Alternar barra lateral</span>
+          <span class="sr-only">{{
+            isMobileLayout()
+              ? mobileNavOpen()
+                ? 'Cerrar menú de navegación'
+                : 'Abrir menú de navegación'
+              : 'Alternar barra lateral'
+          }}</span>
         </button>
-        <span class="topbar-title">Rifas Luxury RD — Backoffice</span>
+        <span class="topbar-title">Rifas Luxury RD</span>
       </div>
       <div class="topbar-right">
-        <div class="notify-wrap">
-          <button type="button" class="notify-btn" aria-label="Notificaciones, 3 sin leer">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-            </svg>
-          </button>
-          <span class="notify-badge" aria-hidden="true">3</span>
-        </div>
         <div class="user-menu" (click)="$event.stopPropagation()">
           <button
             type="button"
@@ -180,14 +223,27 @@
             aria-haspopup="menu"
           >
             <div class="user-meta">
-              <div class="user-name">Jose Noboa</div>
-              <div class="user-role">admin</div>
+              @if (sessionUser(); as u) {
+                <div class="user-name">{{ u.name?.trim() || 'Usuario' }}</div>
+                @if (u.role) {
+                  <div class="user-role">{{ u.role }}</div>
+                }
+              } @else {
+                <div class="user-name">Usuario</div>
+              }
             </div>
-            <div class="avatar" aria-hidden="true">JN</div>
+            <div class="avatar" aria-hidden="true">{{ userInitials() }}</div>
           </button>
 
           @if (userMenuOpen()) {
             <div class="user-dropdown" role="menu" aria-label="Menú de usuario">
+              <button type="button" class="ud-item" role="menuitem" (click)="openChangePasswordModal()">
+                <svg class="ud-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                  <rect x="5" y="11" width="14" height="10" rx="2" stroke-linejoin="round" />
+                  <path d="M8 11V7a4 4 0 0 1 8 0v4" stroke-linecap="round" />
+                </svg>
+                Cambiar contraseña
+              </button>
               <button type="button" class="ud-item danger" role="menuitem" (click)="openLogoutModal()">
                 <svg class="ud-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -209,65 +265,101 @@
           <h1>Dashboard</h1>
           <p>Resumen general del sistema</p>
         </div>
-        <button type="button" class="btn btn-primary">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z" />
-          </svg>
-          Acciones rápidas
+        <button type="button" class="btn btn-primary" (click)="loadDashboardStats()" [disabled]="statsLoading()">
+          @if (statsLoading()) {
+            <app-spinner [size]="18" [stroke]="3" label="Actualizando" />
+            Actualizando…
+          } @else {
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M21 12a9 9 0 1 1-2.64-6.36" stroke-linecap="round" />
+              <path d="M21 3v6h-6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Actualizar datos
+          }
         </button>
       </div>
 
+      @if (statsError()) {
+        <div class="list-error dashboard-stats-error" role="alert">{{ statsError() }}</div>
+      }
+
       <section class="cards" aria-label="Indicadores">
-        <article class="stat-card">
-          <div class="stat-icon cyan" aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-            </svg>
-          </div>
-          <div class="stat-body">
-            <h3>Usuarios</h3>
-            <p class="stat-value">1 248</p>
-            <p class="stat-detail">Activos: 1 100</p>
-          </div>
-        </article>
         <article class="stat-card">
           <div class="stat-icon yellow" aria-hidden="true">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-              <path d="M12 9v4M12 17h.01" />
-              <path d="M10.3 3.3 1.6 18a2 2 0 0 0 1.7 3h17.4a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z" />
+              <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" stroke-linejoin="round" />
+              <path d="M3 6h18" />
+              <path d="M16 10a4 4 0 0 1-8 0" />
             </svg>
           </div>
           <div class="stat-body">
-            <h3>Bloqueados</h3>
-            <p class="stat-value">14</p>
-            <p class="stat-detail">Últimos 7 días: 3</p>
+            <h3>Órdenes pendientes</h3>
+            <p class="stat-value stat-value--loading">
+              @if (statsLoading()) {
+                <app-spinner [size]="22" [stroke]="3" label="Cargando" />
+              } @else {
+                {{ pendingOrdersTotal() | number: '1.0-0' }}
+              }
+            </p>
+            <p class="stat-detail">Validación o pago pendiente</p>
           </div>
         </article>
         <article class="stat-card">
-          <div class="stat-icon red" aria-hidden="true">
+          <div class="stat-icon cyan" aria-hidden="true">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+              <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" />
+              <path d="M3 9V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2" />
             </svg>
           </div>
           <div class="stat-body">
-            <h3>Alertas</h3>
-            <p class="stat-value">3</p>
-            <p class="stat-detail">Requieren revisión</p>
+            <h3>Rifas disponibles</h3>
+            <p class="stat-value stat-value--loading">
+              @if (statsLoading()) {
+                <app-spinner [size]="22" [stroke]="3" label="Cargando" />
+              } @else {
+                {{ availableRafflesCount() | number: '1.0-0' }}
+              }
+            </p>
+            <p class="stat-detail">Activas con boletos a la venta</p>
           </div>
         </article>
         <article class="stat-card">
           <div class="stat-icon navy" aria-hidden="true">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-              <path d="M3 3v18h18" />
-              <path d="M7 16 12 11l4 4 5-6" />
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
           </div>
           <div class="stat-body">
-            <h3>Ventas</h3>
-            <p class="stat-value">RD$ 182K</p>
-            <p class="stat-detail">Este mes</p>
+            <h3>Participantes</h3>
+            <p class="stat-value stat-value--loading">
+              @if (statsLoading()) {
+                <app-spinner [size]="22" [stroke]="3" label="Cargando" />
+              } @else {
+                {{ participantsTotal() | number: '1.0-0' }}
+              }
+            </p>
+            <p class="stat-detail">Registrados en el sistema</p>
+          </div>
+        </article>
+        <article class="stat-card">
+          <div class="stat-icon ok" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          </div>
+          <div class="stat-body">
+            <h3>Órdenes confirmadas</h3>
+            <p class="stat-value stat-value--loading">
+              @if (statsLoading()) {
+                <app-spinner [size]="22" [stroke]="3" label="Cargando" />
+              } @else {
+                {{ confirmedOrdersTotal() | number: '1.0-0' }}
+              }
+            </p>
+            <p class="stat-detail">Pedidos validados</p>
           </div>
         </article>
       </section>
@@ -276,46 +368,60 @@
         <section class="panel" aria-labelledby="quick-heading">
           <div class="panel-h" id="quick-heading">Accesos rápidos</div>
           <div class="panel-b">
-            <button type="button" class="quick-item active">
+            <button type="button" class="quick-item" (click)="openView('orders')">
               <span class="qi-icon" aria-hidden="true">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+                  <path d="M3 6h18" />
+                </svg>
+              </span>
+              <span class="qi-text">
+                <h4>Órdenes</h4>
+                <p>Validar pagos y revisar pedidos</p>
+              </span>
+              <svg class="qi-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            </button>
+            <button type="button" class="quick-item" (click)="openView('raffles')">
+              <span class="qi-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                  <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" />
+                  <path d="M3 9V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2" />
+                </svg>
+              </span>
+              <span class="qi-text">
+                <h4>Rifas</h4>
+                <p>Crear y editar rifas</p>
+              </span>
+              <svg class="qi-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            </button>
+            <button type="button" class="quick-item" (click)="openView('participants')">
+              <span class="qi-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                   <circle cx="9" cy="7" r="4" />
                 </svg>
               </span>
               <span class="qi-text">
-                <h4>Gestionar usuarios</h4>
-                <p>Altas, bloqueos y roles</p>
+                <h4>Participantes</h4>
+                <p>Altas y datos de compradores</p>
               </span>
               <svg class="qi-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                 <path d="m9 18 6-6-6-6" />
               </svg>
             </button>
-            <button type="button" class="quick-item">
+            <button type="button" class="quick-item" (click)="openView('numbers')">
               <span class="qi-icon" aria-hidden="true">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-                  <rect x="3" y="4" width="18" height="18" rx="2" />
-                  <path d="M16 2v4M8 2v4M3 10h18" />
+                  <path d="M12 2v20M2 12h20" />
                 </svg>
               </span>
               <span class="qi-text">
-                <h4>Nueva rifa</h4>
-                <p>Configurar fechas y premios</p>
-              </span>
-              <svg class="qi-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path d="m9 18 6-6-6-6" />
-              </svg>
-            </button>
-            <button type="button" class="quick-item">
-              <span class="qi-icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-                  <path d="M12 8v8M8 12h8" />
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                </svg>
-              </span>
-              <span class="qi-text">
-                <h4>Reportes</h4>
-                <p>Exportar movimientos</p>
+                <h4>Números jugados</h4>
+                <p>Boletos vendidos por rifa</p>
               </span>
               <svg class="qi-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                 <path d="m9 18 6-6-6-6" />
@@ -325,32 +431,36 @@
         </section>
 
         <section class="panel" aria-labelledby="activity-heading">
-          <div class="panel-h" id="activity-heading">Actividad reciente</div>
-          <div class="timeline">
-            <div class="tl-row">
-              <span class="tl-dot ok" aria-hidden="true"></span>
-              <div class="tl-main">
-                <h4>Usuario bloqueado</h4>
-                <p>Intentos fallidos de acceso</p>
+          <div class="panel-h panel-h--row">
+            <span id="activity-heading">Órdenes recientes</span>
+            <button type="button" class="btn-inline panel-h-link" (click)="openView('orders')">Ver todas</button>
+          </div>
+          <div class="timeline" role="list">
+            @if (statsLoading() && recentOrders().length === 0) {
+              <div class="timeline-loading">
+                <app-spinner [size]="24" [stroke]="3" label="Cargando órdenes" />
+                <span>Cargando órdenes…</span>
               </div>
-              <time class="tl-time" datetime="2026-03-24T10:12">Hoy, 10:12</time>
-            </div>
-            <div class="tl-row">
-              <span class="tl-dot warn" aria-hidden="true"></span>
-              <div class="tl-main">
-                <h4>Rifa actualizada</h4>
-                <p>Cambio de fecha de cierre</p>
-              </div>
-              <time class="tl-time" datetime="2026-03-23T18:40">Ayer, 18:40</time>
-            </div>
-            <div class="tl-row">
-              <span class="tl-dot alert" aria-hidden="true"></span>
-              <div class="tl-main">
-                <h4>Pago pendiente</h4>
-                <p>Revisión manual requerida</p>
-              </div>
-              <time class="tl-time" datetime="2026-03-23T09:05">Ayer, 09:05</time>
-            </div>
+            } @else if (!statsLoading() && recentOrders().length === 0) {
+              <p class="timeline-empty">No hay órdenes para mostrar.</p>
+            } @else {
+              @for (o of recentOrders(); track o.id) {
+                <div
+                  class="tl-row tl-row--click"
+                  role="listitem"
+                  tabindex="0"
+                  (click)="openView('orders')"
+                  (keydown.enter)="openView('orders')"
+                >
+                  <span [class]="orderTimelineDotClass(o.status)" aria-hidden="true"></span>
+                  <div class="tl-main">
+                    <h4>Pedido #{{ o.id }} · {{ orderStatusLabel(o.status) }}</h4>
+                    <p>{{ o.customer_name }} — {{ o.raffle?.title ?? 'Rifa' }}</p>
+                  </div>
+                  <time class="tl-time" [attr.datetime]="o.created_at">{{ o.created_at | formatDateTime }}</time>
+                </div>
+              }
+            }
           </div>
         </section>
       </div>
@@ -360,12 +470,99 @@
       <app-participants />
       } @else if (currentView() === 'categories') {
       <app-categories />
-      } @else {
+      } @else if (currentView() === 'raffles') {
       <app-raffles />
+      } @else if (currentView() === 'bank-accounts') {
+      <app-bank-accounts />
+      } @else if (currentView() === 'orders') {
+      <app-orders />
+      } @else if (currentView() === 'winners') {
+      <app-winners />
+      } @else if (currentView() === 'numbers') {
+      <app-played-numbers />
+      } @else if (currentView() === 'prizes') {
+      <app-raffle-prizes />
       }
     </main>
   </div>
 </div>
+
+@if (changePasswordOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeChangePasswordModal()">
+    <div
+      class="modal modal--cp"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cp-title"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="modal-h" id="cp-title">Cambiar contraseña</div>
+      <div class="modal-b">
+        <p class="cp-intro">Usa tu contraseña actual y elige una nueva (mínimo 8 caracteres).</p>
+        <form [formGroup]="changePasswordForm" (ngSubmit)="submitChangePassword()">
+          <div class="cp-fields">
+            <label class="cp-label">
+              <span>Contraseña actual</span>
+              <input
+                type="password"
+                class="cp-input"
+                formControlName="current_password"
+                autocomplete="current-password"
+              />
+              @if (changePasswordForm.controls.current_password.invalid && changePasswordForm.controls.current_password.touched) {
+                <span class="cp-field-error">Obligatoria.</span>
+              }
+            </label>
+            <label class="cp-label">
+              <span>Nueva contraseña</span>
+              <input
+                type="password"
+                class="cp-input"
+                formControlName="password"
+                autocomplete="new-password"
+              />
+              @if (changePasswordForm.controls.password.invalid && changePasswordForm.controls.password.touched) {
+                <span class="cp-field-error">
+                  @if (changePasswordForm.controls.password.hasError('required')) {
+                    Obligatoria.
+                  } @else if (changePasswordForm.controls.password.hasError('minlength')) {
+                    Mínimo 8 caracteres.
+                  }
+                </span>
+              }
+            </label>
+            <label class="cp-label">
+              <span>Confirmar nueva contraseña</span>
+              <input
+                type="password"
+                class="cp-input"
+                formControlName="password_confirmation"
+                autocomplete="new-password"
+              />
+              @if (changePasswordForm.controls.password_confirmation.invalid && changePasswordForm.controls.password_confirmation.touched) {
+                <span class="cp-field-error">Obligatoria.</span>
+              }
+            </label>
+          </div>
+          @if (changePasswordForm.hasError('passwordMismatch') && changePasswordForm.controls.password_confirmation.touched) {
+            <p class="cp-field-error cp-field-error--block">La confirmación no coincide con la nueva contraseña.</p>
+          }
+          <div class="modal-f cp-modal-f">
+            <button type="button" class="btn btn-ghost" (click)="closeChangePasswordModal()">Cancelar</button>
+            <button type="submit" class="btn btn-primary" [disabled]="isChangePasswordSubmitting">
+              @if (isChangePasswordSubmitting) {
+                <app-spinner [size]="16" [stroke]="3" label="Guardando" />
+                Guardando…
+              } @else {
+                Guardar
+              }
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
 
 @if (logoutOpen()) {
   <div class="modal-backdrop" role="presentation" (click)="closeLogoutModal()">

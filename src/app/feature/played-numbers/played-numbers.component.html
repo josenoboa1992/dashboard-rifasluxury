@@ -1,0 +1,334 @@
+<div class="page-head">
+  <div>
+    <h1>Números jugados</h1>
+    <p>Boletos ya vendidos por rifa; haz clic en una fila para ver el detalle.</p>
+  </div>
+</div>
+
+@if (rafflesError()) {
+  <div class="list-error" role="alert">{{ rafflesError() }}</div>
+}
+
+<section class="panel raffle-picker" aria-label="Seleccionar rifa">
+  <label class="picker-label">
+    Rifa
+    <select
+      class="raffle-select"
+      [value]="selectedRaffle()?.id ?? ''"
+      (change)="onRaffleSelectedFromSelect($event)"
+      [disabled]="rafflesLoading()"
+    >
+      <option value="">Seleccionar rifa</option>
+      @for (r of raffles(); track r.id) {
+        <option [value]="r.id">{{ raffleLabel(r) }}</option>
+      }
+    </select>
+  </label>
+  @if (rafflesLoading()) {
+    <span class="picker-hint">
+      <app-spinner [size]="16" [stroke]="3" label="Cargando rifas" />
+      Cargando rifas…
+    </span>
+  }
+</section>
+
+@if (!selectedRaffle()) {
+  <p class="empty-hint">Elige una rifa para ver los números ya jugados (vendidos).</p>
+} @else {
+  @if (listError()) {
+    <div class="list-error" role="alert">{{ listError() }}</div>
+  }
+
+  <section class="panel" aria-label="Boletos vendidos">
+    <div class="toolbar">
+      <div class="total">
+        Total vendidos: {{ total() }}
+        <span class="range"> | {{ fromItem() }}-{{ toItem() }} de {{ total() }}</span>
+        @if (hasActiveTicketFilter()) {
+          <span class="range filter-hint"> · {{ visibleTickets().length }} de {{ tickets().length }} en esta página</span>
+        }
+      </div>
+      <div class="toolbar-actions">
+        <div class="search" role="search">
+          <input
+            type="search"
+            placeholder="Filtrar: boleto, participante, cédula, pedido…"
+            [value]="ticketSearchTerm()"
+            (input)="onTicketSearchInput($event)"
+            [disabled]="listLoading()"
+            aria-label="Filtrar boletos en esta página"
+          />
+          @if (ticketSearchTerm().trim()) {
+            <button type="button" class="btn-inline" (click)="clearTicketSearch()">Limpiar</button>
+          }
+        </div>
+        <label class="per-page-label">
+          Por página
+          <select
+            class="per-page-select"
+            [value]="perPage()"
+            (change)="onPerPageChange($event)"
+            [disabled]="listLoading()"
+          >
+            <option [value]="25">25</option>
+            <option [value]="50">50</option>
+            <option [value]="100">100</option>
+            <option [value]="200">200</option>
+            <option [value]="500">500</option>
+          </select>
+        </label>
+        <button type="button" class="btn btn-ghost refresh" (click)="loadSoldTickets()" [disabled]="listLoading()">
+          @if (listLoading()) {
+            <app-spinner [size]="16" [stroke]="3" label="Cargando" />
+            Cargando…
+          } @else {
+            Recargar
+          }
+        </button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Boleto</th>
+            <th>Estado</th>
+            <th>Participante</th>
+            <th>Último pedido</th>
+            <th class="col-action">Detalle</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (!listLoading() && tickets().length === 0) {
+            <tr>
+              <td colspan="5" class="empty">No hay boletos vendidos registrados para esta rifa.</td>
+            </tr>
+          } @else if (!listLoading() && visibleTickets().length === 0) {
+            <tr>
+              <td colspan="5" class="empty">Ningún boleto coincide con el filtro. Prueba otro término o limpia la búsqueda.</td>
+            </tr>
+          } @else {
+            @for (row of visibleTickets(); track row.id + '-' + row.number) {
+              <tr
+                class="click-row"
+                (click)="openTicketDetail(row)"
+                (keydown.enter)="openTicketDetail(row)"
+                tabindex="0"
+                role="button"
+              >
+                <td class="mono">{{ row.number }}</td>
+                <td>{{ statusLabel(row.status) }}</td>
+                <td>{{ ticketRowLabel(row) }}</td>
+                <td class="mono muted-sm">{{ latestOrderSummary(row) }}</td>
+                <td class="col-action">
+                  <span class="hint-link">
+                    <mat-icon aria-hidden="true">chevron_right</mat-icon>
+                    Ver
+                  </span>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if (lastPage() > 1) {
+      <div class="pagination">
+        <button type="button" class="btn-inline" (click)="goPrevPage()" [disabled]="listLoading() || currentPage() <= 1">
+          Anterior
+        </button>
+        @for (p of pageNumbers(); track p) {
+          <button
+            type="button"
+            class="btn-inline"
+            [class.active-page]="p === currentPage()"
+            (click)="goToPage(p)"
+            [disabled]="listLoading()"
+          >
+            {{ p }}
+          </button>
+        }
+        <button type="button" class="btn-inline" (click)="goNextPage()" [disabled]="listLoading() || currentPage() >= lastPage()">
+          Siguiente
+        </button>
+      </div>
+    }
+  </section>
+}
+
+@if (detailOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeDetail()">
+    <div class="modal modal--wide" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-h">Detalle del boleto</div>
+      <div class="modal-b">
+        @if (detailShowFullSpinner()) {
+          <div class="detail-loading">
+            <app-spinner [size]="32" [stroke]="3" label="Cargando detalle" />
+            <p>Cargando…</p>
+          </div>
+        } @else {
+          @if (detailModalRow(); as listRow) {
+            <div class="detail-from-list" aria-label="Datos del listado de vendidos">
+              <h3 class="detail-section-title">Boleto {{ listRow.number }}</h3>
+              <p class="detail-lead">Estado: {{ statusLabel(listRow.status) }}</p>
+              <h3 class="detail-section-title">Pedidos (más reciente primero)</h3>
+              @if (listRow.orders?.length) {
+                @for (ord of listRow.orders; track ord.id) {
+                  <section class="order-block">
+                    <h4 class="order-block__title">
+                      Pedido #{{ ord.id }}
+                      @if (ord.status) {
+                        <span class="order-block__status"> · {{ ord.status }}</span>
+                      }
+                    </h4>
+                    @if (ord.participant; as part) {
+                      <dl class="detail-mini-dl">
+                        @if (part.name) {
+                          <div>
+                            <dt>Nombre</dt>
+                            <dd>{{ part.name }}</dd>
+                          </div>
+                        }
+                        @if (part.email) {
+                          <div>
+                            <dt>Correo</dt>
+                            <dd>{{ part.email }}</dd>
+                          </div>
+                        }
+                        @if (part.phone) {
+                          <div>
+                            <dt>Teléfono</dt>
+                            <dd>{{ part.phone }}</dd>
+                          </div>
+                        }
+                        @if (part.cedula) {
+                          <div>
+                            <dt>Cédula</dt>
+                            <dd>{{ part.cedula }}</dd>
+                          </div>
+                        }
+                        @if (part.id != null) {
+                          <div>
+                            <dt>ID participante</dt>
+                            <dd>{{ part.id }}</dd>
+                          </div>
+                        }
+                      </dl>
+                    } @else {
+                      <p class="muted">Sin participante en este pedido.</p>
+                    }
+                  </section>
+                }
+              } @else {
+                <p class="muted">El listado no incluye pedidos para este boleto.</p>
+              }
+            </div>
+          }
+          @if (detailLoading()) {
+            <p class="detail-inline-loading">
+              <app-spinner [size]="18" [stroke]="3" label="Sincronizando" />
+              Sincronizando detalle con el servidor…
+            </p>
+          }
+          @if (detailError()) {
+            <div class="list-error" role="alert">{{ detailError() }}</div>
+          }
+          @if (ticketDetail(); as d) {
+            <div class="detail-friendly detail-friendly--api" aria-label="Detalle del API">
+              @if (asObj(d['ticket']); as t) {
+                <h3 class="detail-section-title">Boleto (API)</h3>
+                <dl class="detail-mini-dl">
+                  @if (t['number'] != null) {
+                    <div>
+                      <dt>Número</dt>
+                      <dd>{{ t['number'] }}</dd>
+                    </div>
+                  }
+                  @if (t['status'] != null) {
+                    <div>
+                      <dt>Estado</dt>
+                      <dd>{{ t['status'] }}</dd>
+                    </div>
+                  }
+                </dl>
+              }
+              @if (asObj(d['participant']); as p) {
+                <h3 class="detail-section-title">Participante (API)</h3>
+                <dl class="detail-mini-dl">
+                  @if (p['name']) {
+                    <div>
+                      <dt>Nombre</dt>
+                      <dd>{{ p['name'] }}</dd>
+                    </div>
+                  }
+                  @if (p['email']) {
+                    <div>
+                      <dt>Correo</dt>
+                      <dd>{{ p['email'] }}</dd>
+                    </div>
+                  }
+                  @if (p['phone']) {
+                    <div>
+                      <dt>Teléfono</dt>
+                      <dd>{{ p['phone'] }}</dd>
+                    </div>
+                  }
+                  @if (p['cedula']) {
+                    <div>
+                      <dt>Cédula</dt>
+                      <dd>{{ p['cedula'] }}</dd>
+                    </div>
+                  }
+                </dl>
+              }
+              @if (asObj(d['order']); as o) {
+                <h3 class="detail-section-title">Pedido (API)</h3>
+                <dl class="detail-mini-dl">
+                  @if (o['id'] != null) {
+                    <div>
+                      <dt>ID pedido</dt>
+                      <dd>{{ o['id'] }}</dd>
+                    </div>
+                  }
+                  @if (o['status']) {
+                    <div>
+                      <dt>Estado</dt>
+                      <dd>{{ o['status'] }}</dd>
+                    </div>
+                  }
+                  @if (o['customer_name']) {
+                    <div>
+                      <dt>Cliente</dt>
+                      <dd>{{ o['customer_name'] }}</dd>
+                    </div>
+                  }
+                  @if (o['email']) {
+                    <div>
+                      <dt>Correo</dt>
+                      <dd>{{ o['email'] }}</dd>
+                    </div>
+                  }
+                  @if (o['phone']) {
+                    <div>
+                      <dt>Teléfono</dt>
+                      <dd>{{ o['phone'] }}</dd>
+                    </div>
+                  }
+                </dl>
+              }
+              <h3 class="detail-section-title detail-section-title--json">Respuesta completa</h3>
+              <div class="detail-json">
+                <pre>{{ d | json }}</pre>
+              </div>
+            </div>
+          }
+        }
+      </div>
+      <div class="modal-f">
+        <button type="button" class="btn btn-ghost" (click)="closeDetail()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,15 +1,234 @@
+@import '@angular/material/prebuilt-themes/azure-blue.css';
+
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
 
-html,
-body {
+:root {
+  --app-font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+html {
   height: 100%;
+  font-family: var(--app-font-family);
 }
 
 body {
+  height: 100%;
   margin: 0;
   background: #f4f5f7;
+  font-family: inherit;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+/* Angular Material: misma familia en overlays y formularios */
+.cdk-overlay-container,
+.mat-mdc-form-field,
+.mat-mdc-button,
+.mat-datepicker-content,
+.mat-mdc-dialog-container,
+.mat-mdc-menu-panel,
+.mat-mdc-select-panel {
+  font-family: var(--app-font-family);
+}
+
+/*
+ * Calendario del datepicker: el tema suele forzar Roboto en celdas y cabecera.
+ * !important para ganar a los estilos del prebuilt theme (texto sigue siendo Poppins).
+ */
+.mat-datepicker-popup,
+.mat-datepicker-dialog,
+.mat-datepicker-content,
+.mat-datepicker-content-container,
+mat-datepicker-content,
+.mat-calendar,
+.mat-calendar-content,
+.mat-calendar-header,
+.mat-calendar-controls,
+.mat-calendar-period-button,
+.mat-calendar-previous-button,
+.mat-calendar-next-button,
+.mat-calendar-table,
+.mat-calendar-table-header,
+.mat-calendar-table-header th,
+.mat-calendar-table-header th span,
+.mat-calendar-body,
+.mat-calendar-body-label,
+.mat-calendar-body-cell,
+.mat-calendar-body-cell-content,
+.mat-datepicker-actions,
+.mat-datepicker-actions .mat-mdc-button,
+.mat-datepicker-actions .mdc-button,
+.mat-datepicker-toggle,
+.mat-datepicker-toggle .mat-mdc-icon-button,
+.mat-calendar-body button,
+.mat-calendar-body .mat-mdc-button {
+  font-family: var(--app-font-family) !important;
+}
+
+/* Material: títulos de tarjeta (tema trae Roboto; usamos Poppins cargada en index.html) */
+.mat-mdc-card-title,
+.mat-mdc-card-subtitle {
+  font-family: var(--app-font-family) !important;
+}
+
+/* Material: botones (modales, tarjetas, snackbar; el prebuilt theme fuerza Roboto en .mdc-button) */
+.mat-mdc-button-base,
+.mat-mdc-button,
+.mat-mdc-raised-button,
+.mat-mdc-unelevated-button,
+.mat-mdc-outlined-button,
+.mat-mdc-text-button,
+.mat-mdc-icon-button,
+.mat-mdc-button .mdc-button,
+.mat-mdc-unelevated-button .mdc-button,
+.mat-mdc-outlined-button .mdc-button,
+.mat-mdc-icon-button .mdc-button,
+.mdc-button__label {
+  font-family: var(--app-font-family) !important;
+}
+
+/* Material: Poppins en campos de texto, etiquetas y listas (evita tipografía serif del SO en inputs) */
+.mat-mdc-form-field .mat-mdc-input-element,
+.mat-mdc-form-field .mat-mdc-floating-label,
+.mat-mdc-form-field .mat-mdc-select-value,
+.mat-mdc-form-field .mat-mdc-select-min-line,
+.mat-mdc-form-field .mat-mdc-select-arrow,
+.mat-mdc-select-panel .mat-mdc-option .mdc-list-item__primary-text {
+  font-family: var(--app-font-family) !important;
+}
+
+/* Tablas: fila de acciones con iconos Material (relleno) */
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+.action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  background: transparent;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
+}
+.action-icon mat-icon {
+  font-family: 'Material Symbols Rounded', 'Material Icons' !important;
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-size: 1.35rem;
+  width: 1.35rem;
+  height: 1.35rem;
+  line-height: 1.35rem;
+  font-weight: normal;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+}
+.action-icon:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+.action-icon:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+.action-icon--view {
+  color: #2c3552;
+}
+.action-icon--view:hover:not(:disabled) {
+  background: rgba(44, 53, 82, 0.12);
+}
+.action-icon--tickets {
+  color: #156c38;
+}
+.action-icon--tickets:hover:not(:disabled) {
+  background: rgba(21, 108, 56, 0.12);
+}
+.action-icon--edit {
+  color: #c45c00;
+}
+.action-icon--edit:hover:not(:disabled) {
+  background: rgba(196, 92, 0, 0.12);
+}
+.action-icon--delete {
+  color: #c62828;
+}
+.action-icon--delete:hover:not(:disabled) {
+  background: rgba(198, 40, 40, 0.12);
+}
+.action-icon-spin {
+  animation: action-icon-spin 0.85s linear infinite;
+}
+@keyframes action-icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Snackbar / toast (Material) */
+.mat-mdc-snack-bar-container.app-toast {
+  margin: 1rem !important;
+  border-radius: 0.65rem !important;
+  font-family: var(--app-font-family) !important;
+  font-weight: 600 !important;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 0.18) !important;
+}
+.mat-mdc-snack-bar-container.app-toast-success {
+  --mat-snack-bar-button-color: #fff;
+  --mdc-snackbar-container-color: #1b5e20;
+  --mdc-snackbar-supporting-text-color: #fff;
+}
+.mat-mdc-snack-bar-container.app-toast-error {
+  --mat-snack-bar-button-color: #fff;
+  --mdc-snackbar-container-color: #b71c1c;
+  --mdc-snackbar-supporting-text-color: #fff;
+}
+
+.fullscreen-save-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fullscreen-save-overlay__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(4 5 122 / 0.55);
+  backdrop-filter: blur(4px);
+}
+.fullscreen-save-overlay__panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.75rem 2.25rem;
+  background: #fff;
+  border-radius: 1rem;
+  border: 1px solid #e6e8ed;
+  box-shadow: 0 20px 50px rgb(15 23 42 / 0.22);
+  max-width: min(90vw, 320px);
+  text-align: center;
+}
+.fullscreen-save-overlay__text {
+  margin: 0;
+  font-weight: 700;
+  color: #2c3552;
+  font-size: 0.95rem;
 }

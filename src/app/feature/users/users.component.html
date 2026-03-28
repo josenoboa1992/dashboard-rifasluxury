@@ -70,18 +70,36 @@
               <td>{{ user.cedula || '-' }}</td>
               <td>
                 <div class="row-actions">
-                  <button type="button" class="btn-inline" (click)="openViewUser(user)">Ver</button>
-                  <button type="button" class="btn-inline" (click)="openEditUser(user)">Editar</button>
                   <button
                     type="button"
-                    class="btn-inline danger"
+                    class="action-icon action-icon--view"
+                    (click)="openViewUser(user)"
+                    aria-label="Ver usuario"
+                    title="Ver"
+                  >
+                    <mat-icon aria-hidden="true">visibility</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="action-icon action-icon--edit"
+                    (click)="openEditUser(user)"
+                    aria-label="Editar usuario"
+                    title="Editar"
+                  >
+                    <mat-icon aria-hidden="true">edit</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="action-icon action-icon--delete"
                     (click)="deleteUser(user)"
                     [disabled]="deletingUserId() === user.id"
+                    aria-label="Eliminar usuario"
+                    title="Eliminar"
                   >
                     @if (deletingUserId() === user.id) {
-                      Eliminando...
+                      <mat-icon aria-hidden="true" class="action-icon-spin">autorenew</mat-icon>
                     } @else {
-                      Eliminar
+                      <mat-icon aria-hidden="true">delete</mat-icon>
                     }
                   </button>
                 </div>
@@ -194,12 +212,7 @@
             <button type="button" class="btn btn-ghost" (click)="closeUserModal()">Cancelar</button>
             @if (!isViewMode) {
               <button type="submit" class="btn btn-primary" [disabled]="userForm.invalid || userSubmitting()">
-                @if (userSubmitting()) {
-                  <app-spinner [size]="16" [stroke]="3" label="Guardando usuario" />
-                  Guardando...
-                } @else {
-                  Guardar
-                }
+                Guardar
               </button>
             }
           </div>
@@ -208,4 +221,32 @@
     </div>
   </div>
 }
+
+@if (userModalOpen() && userSubmitting()) {
+  <div
+    class="fullscreen-save-overlay"
+    role="alertdialog"
+    aria-modal="true"
+    aria-live="assertive"
+    aria-busy="true"
+    aria-label="Guardando usuario"
+  >
+    <div class="fullscreen-save-overlay__backdrop"></div>
+    <div class="fullscreen-save-overlay__panel">
+      <app-spinner [size]="40" [stroke]="3" label="Guardando usuario" />
+      <p class="fullscreen-save-overlay__text">Guardando cambios…</p>
+    </div>
+  </div>
+}
+
+<app-confirm-dialog
+  [open]="deleteConfirmOpen()"
+  [loading]="deletingUserId() !== null"
+  title="Confirmar eliminacion"
+  [message]="deleteConfirmMessage()"
+  confirmText="Si, eliminar"
+  cancelText="Cancelar"
+  (confirm)="confirmDeleteUser()"
+  (cancel)="closeDeleteConfirm()"
+/>
 

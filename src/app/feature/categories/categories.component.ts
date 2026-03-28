@@ -4,6 +4,9 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { finalize } from 'rxjs';
 
 import { SpinnerComponent } from '../../core/ui/spinner/spinner.component';
+import { ConfirmDialogComponent } from '../../core/ui/confirm-dialog/confirm-dialog.component';
+import { ToastService } from '../../core/ui/toast/toast.service';
+import { MatIconModule } from '@angular/material/icon';
 import {
   CategoryPayload,
   CategoriesService,
@@ -13,7 +16,7 @@ import {
 @Component({
   selector: 'app-categories',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, SpinnerComponent],
+  imports: [CommonModule, ReactiveFormsModule, SpinnerComponent, MatIconModule, ConfirmDialogComponent],
   templateUrl: './categories.component.html',
   styleUrl: './categories.component.css',
 })
@@ -29,6 +32,8 @@ export class CategoriesComponent {
   readonly toItem = signal(0);
   readonly total = signal(0);
   readonly deletingCategoryId = signal<number | null>(null);
+  readonly deleteConfirmOpen = signal(false);
+  readonly deleteTarget = signal<Category | null>(null);
   readonly modalOpen = signal(false);
   readonly modalMode = signal<'create' | 'view' | 'edit'>('create');
   readonly modalSubmitting = signal(false);
@@ -56,9 +61,17 @@ export class CategoriesComponent {
     return pages;
   });
 
+  readonly deleteConfirmMessage = computed(() => {
+    const c = this.deleteTarget();
+    return c
+      ? `¿Eliminar la categoria ${this.getCategoryName(c)}? Esta accion no se puede deshacer.`
+      : '';
+  });
+
   constructor(
     private readonly categoriesService: CategoriesService,
     private readonly fb: FormBuilder,
+    private readonly toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -173,8 +186,8 @@ export class CategoriesComponent {
       });
   }
 
-  closeModal(): void {
-    if (this.modalSubmitting()) return;
+  closeModal(force: boolean = false): void {
+    if (!force && this.modalSubmitting()) return;
     this.modalOpen.set(false);
     this.modalError.set(null);
     this.activeCategoryId.set(null);
@@ -205,8 +218,12 @@ export class CategoriesComponent {
     request$
       .pipe(finalize(() => this.modalSubmitting.set(false)))
       .subscribe({
-        next: () => {
-          this.closeModal();
+        next: (res) => {
+          this.toast.successFromApiResponse(
+            res,
+            isCreate ? 'Categoría creada con éxito' : 'Guardado con éxito',
+          );
+          this.closeModal(true);
           this.loadCategories();
         },
         error: (err) => {
@@ -223,23 +240,39 @@ export class CategoriesComponent {
 
   deleteCategory(category: Category): void {
     if (this.deletingCategoryId() === category.id) return;
-    const confirmed = window.confirm(
-      `¿Eliminar la categoria ${this.getCategoryName(category)}? Esta acción no se puede deshacer.`,
-    );
-    if (!confirmed) return;
+    this.deleteTarget.set(category);
+    this.deleteConfirmOpen.set(true);
+  }
 
+  closeDeleteConfirm(): void {
+    if (this.deletingCategoryId() !== null) return;
+    this.deleteConfirmOpen.set(false);
+    this.deleteTarget.set(null);
+  }
+
+  confirmDeleteCategory(): void {
+    const category = this.deleteTarget();
+    if (!category || this.deletingCategoryId() === category.id) return;
     this.deletingCategoryId.set(category.id);
     this.categoriesService
       .deleteCategory(category.id)
       .pipe(finalize(() => this.deletingCategoryId.set(null)))
       .subscribe({
-        next: () => this.loadCategories(),
+        next: (res) => {
+          this.toast.successFromApiResponse(res, 'Categoría eliminada con éxito');
+          this.deleteConfirmOpen.set(false);
+          this.deleteTarget.set(null);
+          this.loadCategories();
+        },
         error: (err) => {
           const message =
             err?.error?.message ||
             err?.error?.detail ||
             'No fue posible eliminar la categoria.';
           this.error.set(String(message));
+          this.toast.error(String(message));
+          this.deleteConfirmOpen.set(false);
+          this.deleteTarget.set(null);
         },
       });
   }

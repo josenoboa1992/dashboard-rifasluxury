@@ -1,0 +1,105 @@
+<div class="page-head">
+  <div>
+    <h1>Premios</h1>
+    <p>Cada rifa es un premio; aquí ves si sigue disponible o ya está agotado.</p>
+  </div>
+  <button type="button" class="btn btn-ghost" (click)="loadAll()" [disabled]="loading()">
+    @if (loading()) {
+      <app-spinner [size]="16" [stroke]="3" label="Cargando" />
+      Cargando…
+    } @else {
+      Recargar
+    }
+  </button>
+</div>
+
+@if (error()) {
+  <div class="list-error" role="alert">{{ error() }}</div>
+}
+
+@if (!loading() && !error() && raffles().length === 0) {
+  <p class="empty-hint">No hay rifas registradas.</p>
+}
+
+<div class="prize-grid" role="list">
+  @for (r of raffles(); track r.id) {
+    @let st = prizeState(r);
+    <article
+      class="prize-card"
+      role="listitem"
+      tabindex="0"
+      (click)="openDetail(r)"
+      (keydown.enter)="openDetail(r)"
+    >
+      <div class="prize-card__media">
+        @if (r.image?.url) {
+          <img [src]="r.image!.url" [alt]="raffleTitle(r)" loading="lazy" />
+        } @else {
+          <div class="prize-card__placeholder" aria-hidden="true">
+            <span class="prize-card__ph-text">Sin imagen</span>
+          </div>
+        }
+      </div>
+      <div class="prize-card__body">
+        <h2 class="prize-card__title">{{ raffleTitle(r) }}</h2>
+        <p class="prize-card__price">{{ r.ticket_price | formatMoney }}</p>
+        <span class="state-pill" [attr.data-variant]="st.variant">{{ st.label }}</span>
+        <p class="prize-card__hint">{{ st.hint }}</p>
+        <span class="prize-card__cta">Ver detalle</span>
+      </div>
+    </article>
+  }
+</div>
+
+@if (detailOpen() && detailRaffle(); as r) {
+  @let st = prizeState(r);
+  <div class="modal-backdrop" role="presentation" (click)="closeDetail()">
+    <div class="modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-h">{{ raffleTitle(r) }}</div>
+      <div class="modal-b">
+        <div class="detail-head">
+          <span class="state-pill state-pill--lg" [attr.data-variant]="st.variant">{{ st.label }}</span>
+          <p class="detail-hint">{{ st.hint }}</p>
+        </div>
+        @if (r.description) {
+          <p class="detail-desc">{{ r.description }}</p>
+        }
+        <dl class="detail-dl">
+          <div>
+            <dt>Precio del boleto</dt>
+            <dd>{{ r.ticket_price | formatMoney }}</dd>
+          </div>
+          <div>
+            <dt>Meta de boletos</dt>
+            <dd>{{ r.ticket_goal }}</dd>
+          </div>
+          @if (r.tickets_available_count !== undefined) {
+            <div>
+              <dt>Boletos disponibles</dt>
+              <dd>{{ r.tickets_available_count }}</dd>
+            </div>
+          }
+          <div>
+            <dt>Estado (sistema)</dt>
+            <dd>{{ r.status }}</dd>
+          </div>
+          <div>
+            <dt>Inicio</dt>
+            <dd>{{ r.starts_at | formatDateTime }}</dd>
+          </div>
+          <div>
+            <dt>Cierre</dt>
+            <dd>{{ r.ends_at | formatDateTime }}</dd>
+          </div>
+          <div>
+            <dt>Sorteo</dt>
+            <dd>{{ r.draw_at | formatDateTime }}</dd>
+          </div>
+        </dl>
+      </div>
+      <div class="modal-f">
+        <button type="button" class="btn btn-ghost" (click)="closeDetail()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+}

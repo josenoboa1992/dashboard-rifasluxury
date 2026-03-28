@@ -4,6 +4,10 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { finalize } from 'rxjs';
 
 import { SpinnerComponent } from '../../core/ui/spinner/spinner.component';
+import { ConfirmDialogComponent } from '../../core/ui/confirm-dialog/confirm-dialog.component';
+import { ToastService } from '../../core/ui/toast/toast.service';
+import { MatIconModule } from '@angular/material/icon';
+import { FormatDateTimePipe } from '../../core/pipes/format-date-time.pipe';
 import {
   Participant,
   ParticipantPayload,
@@ -13,7 +17,14 @@ import {
 @Component({
   selector: 'app-participants',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, SpinnerComponent],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    SpinnerComponent,
+    FormatDateTimePipe,
+    MatIconModule,
+    ConfirmDialogComponent,
+  ],
   templateUrl: './participants.component.html',
   styleUrl: './participants.component.css',
 })
@@ -29,6 +40,8 @@ export class ParticipantsComponent {
   readonly toItem = signal(0);
   readonly totalParticipants = signal(0);
   readonly deletingParticipantId = signal<number | null>(null);
+  readonly deleteConfirmOpen = signal(false);
+  readonly deleteTarget = signal<Participant | null>(null);
   readonly modalOpen = signal(false);
   readonly modalMode = signal<'create' | 'edit'>('edit');
   readonly modalSubmitting = signal(false);
@@ -56,9 +69,17 @@ export class ParticipantsComponent {
     return pages;
   });
 
+  readonly deleteConfirmMessage = computed(() => {
+    const p = this.deleteTarget();
+    return p
+      ? `¿Eliminar a ${p.name}? Esta accion no se puede deshacer.`
+      : '';
+  });
+
   constructor(
     private readonly participantsService: ParticipantsService,
     private readonly fb: FormBuilder,
+    private readonly toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -159,8 +180,8 @@ export class ParticipantsComponent {
     this.modalOpen.set(true);
   }
 
-  closeModal(): void {
-    if (this.modalSubmitting()) return;
+  closeModal(force: boolean = false): void {
+    if (!force && this.modalSubmitting()) return;
     this.modalOpen.set(false);
     this.modalError.set(null);
     this.activeParticipantId.set(null);
@@ -188,8 +209,12 @@ export class ParticipantsComponent {
     request$
       .pipe(finalize(() => this.modalSubmitting.set(false)))
       .subscribe({
-        next: () => {
-          this.closeModal();
+        next: (res) => {
+          this.toast.successFromApiResponse(
+            res,
+            isCreate ? 'Participante creado con éxito' : 'Guardado con éxito',
+          );
+          this.closeModal(true);
           this.loadParticipants();
         },
         error: (err) => {
@@ -206,21 +231,39 @@ export class ParticipantsComponent {
 
   deleteParticipant(participant: Participant): void {
     if (this.deletingParticipantId() === participant.id) return;
-    const confirmed = window.confirm(`¿Eliminar a ${participant.name}? Esta acción no se puede deshacer.`);
-    if (!confirmed) return;
+    this.deleteTarget.set(participant);
+    this.deleteConfirmOpen.set(true);
+  }
 
+  closeDeleteConfirm(): void {
+    if (this.deletingParticipantId() !== null) return;
+    this.deleteConfirmOpen.set(false);
+    this.deleteTarget.set(null);
+  }
+
+  confirmDeleteParticipant(): void {
+    const participant = this.deleteTarget();
+    if (!participant || this.deletingParticipantId() === participant.id) return;
     this.deletingParticipantId.set(participant.id);
     this.participantsService
       .deleteParticipant(participant.id)
       .pipe(finalize(() => this.deletingParticipantId.set(null)))
       .subscribe({
-        next: () => this.loadParticipants(),
+        next: (res) => {
+          this.toast.successFromApiResponse(res, 'Participante eliminado con éxito');
+          this.deleteConfirmOpen.set(false);
+          this.deleteTarget.set(null);
+          this.loadParticipants();
+        },
         error: (err) => {
           const message =
             err?.error?.message ||
             err?.error?.detail ||
             'No fue posible eliminar el participante.';
           this.participantsError.set(String(message));
+          this.toast.error(String(message));
+          this.deleteConfirmOpen.set(false);
+          this.deleteTarget.set(null);
         },
       });
   }

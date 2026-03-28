@@ -108,11 +108,6 @@
   padding: 1rem;
 }
 
-.row-actions {
-  display: inline-flex;
-  gap: 0.35rem;
-}
-
 .btn-inline {
   border: 1px solid #d8deea;
   background: #fff;

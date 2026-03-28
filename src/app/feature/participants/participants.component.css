@@ -145,11 +145,6 @@
     0 4px 14px rgb(248 2 3 / 0.35);
 }
 
-.row-actions {
-  display: inline-flex;
-  gap: 0.35rem;
-}
-
 .pagination {
   display: flex;
   align-items: center;

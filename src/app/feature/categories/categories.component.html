@@ -64,18 +64,36 @@
               <td>{{ category.slug || '-' }}</td>
               <td>
                 <div class="row-actions">
-                  <button type="button" class="btn-inline" (click)="openViewCategory(category)">Ver</button>
-                  <button type="button" class="btn-inline" (click)="openEditCategory(category)">Editar</button>
                   <button
                     type="button"
-                    class="btn-inline danger"
+                    class="action-icon action-icon--view"
+                    (click)="openViewCategory(category)"
+                    aria-label="Ver categoria"
+                    title="Ver"
+                  >
+                    <mat-icon aria-hidden="true">visibility</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="action-icon action-icon--edit"
+                    (click)="openEditCategory(category)"
+                    aria-label="Editar categoria"
+                    title="Editar"
+                  >
+                    <mat-icon aria-hidden="true">edit</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="action-icon action-icon--delete"
                     (click)="deleteCategory(category)"
                     [disabled]="deletingCategoryId() === category.id"
+                    aria-label="Eliminar categoria"
+                    title="Eliminar"
                   >
                     @if (deletingCategoryId() === category.id) {
-                      Eliminando...
+                      <mat-icon aria-hidden="true" class="action-icon-spin">autorenew</mat-icon>
                     } @else {
-                      Eliminar
+                      <mat-icon aria-hidden="true">delete</mat-icon>
                     }
                   </button>
                 </div>
@@ -157,12 +175,7 @@
             <button type="button" class="btn btn-ghost" (click)="closeModal()">Cancelar</button>
             @if (modalMode() !== 'view') {
               <button type="submit" class="btn btn-primary" [disabled]="categoryForm.invalid || modalSubmitting()">
-                @if (modalSubmitting()) {
-                  <app-spinner [size]="16" [stroke]="3" label="Guardando categoria" />
-                  Guardando...
-                } @else {
-                  Guardar
-                }
+                Guardar
               </button>
             }
           </div>
@@ -171,4 +184,32 @@
     </div>
   </div>
 }
+
+@if (modalOpen() && modalSubmitting()) {
+  <div
+    class="fullscreen-save-overlay"
+    role="alertdialog"
+    aria-modal="true"
+    aria-live="assertive"
+    aria-busy="true"
+    aria-label="Guardando categoria"
+  >
+    <div class="fullscreen-save-overlay__backdrop"></div>
+    <div class="fullscreen-save-overlay__panel">
+      <app-spinner [size]="40" [stroke]="3" label="Guardando categoria" />
+      <p class="fullscreen-save-overlay__text">Guardando cambios…</p>
+    </div>
+  </div>
+}
+
+<app-confirm-dialog
+  [open]="deleteConfirmOpen()"
+  [loading]="deletingCategoryId() !== null"
+  title="Confirmar eliminacion"
+  [message]="deleteConfirmMessage()"
+  confirmText="Si, eliminar"
+  cancelText="Cancelar"
+  (confirm)="confirmDeleteCategory()"
+  (cancel)="closeDeleteConfirm()"
+/>
 
