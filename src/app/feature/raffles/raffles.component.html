@@ -32,10 +32,10 @@
       </div>
       <select class="status-filter" [value]="statusFilter()" (change)="onStatusFilterChange($any($event.target).value)">
         <option value="">Todos</option>
-        <option value="draft">Draft</option>
-        <option value="active">Active</option>
-        <option value="completed">Completed</option>
-        <option value="cancelled">Cancelled</option>
+        <option value="draft">Borrador</option>
+        <option value="active">Activa</option>
+        <option value="completed">Completada</option>
+        <option value="cancelled">Cancelada</option>
       </select>
       <button type="button" class="btn btn-ghost refresh" (click)="loadRaffles()" [disabled]="loading()">
         @if (loading()) {
@@ -56,8 +56,8 @@
           <th>Imagen</th>
           <th>Titulo</th>
           <th>Estado</th>
-          <th>Precio ticket</th>
-          <th>Tickets meta</th>
+          <th>Precio boleto</th>
+          <th>Boletos meta</th>
           <th>Disponibles</th>
           <th>Fecha sorteo</th>
           <th>Acciones</th>
@@ -80,7 +80,7 @@
                 }
               </td>
               <td>{{ raffle.title }}</td>
-              <td>{{ raffle.status }}</td>
+              <td>{{ raffleStatusLabel(raffle.status) }}</td>
               <td class="nowrap">{{ (raffle.ticket_price | formatMoney) || '—' }}</td>
               <td>{{ raffle.ticket_goal }}</td>
               <td>{{ raffle.tickets_available_count ?? '-' }}</td>
@@ -192,10 +192,10 @@
             </label>
             <label>Estado
               <select formControlName="status">
-                <option value="draft">draft</option>
-                <option value="active">active</option>
-                <option value="completed">completed</option>
-                <option value="cancelled">cancelled</option>
+                <option value="draft">Borrador</option>
+                <option value="active">Activa</option>
+                <option value="completed">Completada</option>
+                <option value="cancelled">Cancelada</option>
               </select>
               @if (isInvalid('status')) { <small class="field-error">{{ getErrorMessage('status') }}</small> }
             </label>
@@ -224,26 +224,26 @@
               @if (isInvalid('description')) { <small class="field-error">{{ getErrorMessage('description') }}</small> }
             </label>
             <label>
-              Meta de tickets
+              Meta de boletos
               <input type="number" formControlName="ticket_goal" placeholder="1000" />
               @if (isInvalid('ticket_goal')) { <small class="field-error">{{ getErrorMessage('ticket_goal') }}</small> }
             </label>
             <label>
-              Precio por ticket
+              Precio por boleto
               @if (modalMode() === 'view') {
-                <div class="money-readonly" aria-label="Precio por ticket">{{ (raffleForm.getRawValue().ticket_price | formatMoney) || '—' }}</div>
+                <div class="money-readonly" aria-label="Precio por boleto">{{ (raffleForm.getRawValue().ticket_price | formatMoney) || '—' }}</div>
               } @else {
                 <input type="number" formControlName="ticket_price" placeholder="50" min="1" step="0.01" />
                 @if (isInvalid('ticket_price')) { <small class="field-error">{{ getErrorMessage('ticket_price') }}</small> }
               }
             </label>
             <label>
-              Maximo de tickets por usuario
+              Máximo de boletos por usuario
               <input type="number" formControlName="max_tickets_per_user" placeholder="10" />
               @if (isInvalid('max_tickets_per_user')) { <small class="field-error">{{ getErrorMessage('max_tickets_per_user') }}</small> }
             </label>
             <label>
-              Minimo de tickets por usuario
+              Mínimo de boletos por usuario
               <input type="number" formControlName="min_tickets_per_user" placeholder="1" />
               @if (isInvalid('min_tickets_per_user')) { <small class="field-error">{{ getErrorMessage('min_tickets_per_user') }}</small> }
             </label>
@@ -257,6 +257,14 @@
               <input type="number" formControlName="digit_count" placeholder="3" />
               @if (isInvalid('digit_count')) { <small class="field-error">{{ getErrorMessage('digit_count') }}</small> }
             </label>
+            <div class="toggle-field full">
+              <mat-slide-toggle formControlName="show_available_tickets" color="primary">
+                Mostrar boletos disponibles (público)
+              </mat-slide-toggle>
+              <small class="input-help"
+                >Si está activo, en la tienda se podrá ver qué números siguen libres; si no, no se muestran.</small
+              >
+            </div>
             <div class="datetime-block full">
               <div class="datetime-row">
                 <mat-form-field appearance="outline" class="datetime-date">
@@ -433,7 +441,7 @@
 @if (ticketsOpen()) {
   <div class="modal-backdrop" role="presentation" (click)="closeAvailableTickets()">
     <div class="modal tickets-modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
-      <div class="modal-h">Tickets disponibles - {{ ticketsRaffleTitle() }}</div>
+      <div class="modal-h">Boletos disponibles - {{ ticketsRaffleTitle() }}</div>
       <div class="modal-b">
         @if (ticketsError()) {
           <div class="list-error">{{ ticketsError() }}</div>
@@ -447,8 +455,8 @@
         </div>
         @if (ticketsLoading()) {
           <div class="tickets-loading">
-            <app-spinner [size]="18" [stroke]="3" label="Cargando tickets" />
-            Cargando tickets...
+            <app-spinner [size]="18" [stroke]="3" label="Cargando boletos" />
+            Cargando boletos...
           </div>
         } @else {
           <div class="tickets-grid">

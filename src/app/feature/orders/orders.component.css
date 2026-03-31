@@ -131,6 +131,22 @@
   color: #1a1d26;
 }
 
+:host-context(html[data-theme='dark']) .cell-primary {
+  color: #e8eaed !important;
+}
+
+:host-context(html[data-theme='dark']) .cell-muted {
+  color: #9aa0a6 !important;
+}
+
+:host-context(html[data-theme='dark']) .detail-label {
+  color: #9aa0a6 !important;
+}
+
+:host-context(html[data-theme='dark']) .detail-value {
+  color: #e8eaed !important;
+}
+
 .cell-muted {
   font-size: 0.78rem;
   color: #6a7284;
@@ -582,4 +598,90 @@
   border-radius: 0.5rem;
   background: #fff;
   box-shadow: 0 1px 0 rgb(0 0 0 / 0.06);
+}
+
+/* ===== Modo oscuro (modales Órdenes) ===== */
+:host-context(html[data-theme='dark']) .modal-backdrop {
+  background: rgb(4 5 122 / 0.70) !important;
+}
+
+:host-context(html[data-theme='dark']) .order-detail-card {
+  background: #1a222c !important;
+  border-color: #2d3848 !important;
+  box-shadow:
+    0 24px 64px rgb(0 0 0 / 0.35),
+    0 0 0 1px rgba(45, 56, 72, 0.95) !important;
+}
+
+:host-context(html[data-theme='dark']) .order-detail-card .mat-mdc-card-header,
+:host-context(html[data-theme='dark']) .order-detail-card .mat-mdc-card-content {
+  background: #1a222c !important;
+}
+
+:host-context(html[data-theme='dark'])
+  .order-detail-card
+  .order-detail-card__header
+  .mat-mdc-card-title {
+  color: #b8c8f0 !important;
+}
+
+:host-context(html[data-theme='dark']) .order-detail-card__amount {
+  color: #ffffff !important;
+}
+
+:host-context(html[data-theme='dark']) .order-detail-card__body {
+  background: #1a222c !important;
+  color: #ffffff !important;
+}
+
+:host-context(html[data-theme='dark']) .detail-label {
+  color: #ffffff !important;
+}
+
+:host-context(html[data-theme='dark']) .order-detail-card__alert {
+  background: rgba(248, 2, 3, 0.12) !important;
+  border-color: rgba(248, 113, 113, 0.35) !important;
+  color: #fca5a5 !important;
+}
+
+:host-context(html[data-theme='dark']) .voucher-preview-backdrop {
+  background: rgb(4 5 122 / 0.65) !important;
+}
+
+:host-context(html[data-theme='dark']) .voucher-preview-dialog {
+  background: #1a222c !important;
+  border-color: #2d3848 !important;
+  box-shadow:
+    0 24px 64px rgb(0 0 0 / 0.35),
+    0 0 0 1px rgba(45, 56, 72, 0.95) !important;
+}
+
+:host-context(html[data-theme='dark']) .voucher-preview-head {
+  border-bottom-color: #2d3848 !important;
+}
+
+:host-context(html[data-theme='dark']) .voucher-preview-title {
+  color: #b8c8f0 !important;
+}
+
+:host-context(html[data-theme='dark']) .voucher-preview-body {
+  background: #141a22 !important;
+}
+
+:host-context(html[data-theme='dark']) .voucher-preview-img {
+  border-color: #2d3848 !important;
+  background: #0f1419 !important;
+}
+
+:host-context(html[data-theme='dark']) .voucher-preview-iframe {
+  background: #0f1419 !important;
+}
+
+/* Dark mode: nombre del cliente en blanco */
+:host-context(html[data-theme='dark']) .cell-primary {
+  color: #ffffff !important;
+}
+
+:host-context(html[data-theme='dark']) .detail-value {
+  color: #ffffff !important;
 }

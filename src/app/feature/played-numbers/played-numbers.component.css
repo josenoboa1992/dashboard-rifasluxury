@@ -315,6 +315,122 @@
   flex-shrink: 0;
 }
 
+:host-context(html[data-theme='dark']) .page-head h1 {
+  color: #b8c8f0;
+}
+
+:host-context(html[data-theme='dark']) .page-head p {
+  color: #9aa0a6;
+}
+
+:host-context(html[data-theme='dark']) .panel {
+  background: #1a222c;
+  border-color: #2d3848;
+}
+
+:host-context(html[data-theme='dark']) .picker-label,
+:host-context(html[data-theme='dark']) .per-page-label {
+  color: #c5cad3;
+}
+
+:host-context(html[data-theme='dark']) .raffle-select,
+:host-context(html[data-theme='dark']) .per-page-select,
+:host-context(html[data-theme='dark']) .search input {
+  background: #141a22;
+  border-color: #2d3848;
+  color: #e8eaed;
+}
+
+:host-context(html[data-theme='dark']) .picker-hint,
+:host-context(html[data-theme='dark']) .empty-hint,
+:host-context(html[data-theme='dark']) .total,
+:host-context(html[data-theme='dark']) .range {
+  color: #9aa0a6;
+}
+
+:host-context(html[data-theme='dark']) .table th {
+  color: #b0b8c8;
+  border-bottom-color: #2d3848;
+}
+
+:host-context(html[data-theme='dark']) .table td {
+  color: #e8eaed;
+  border-bottom-color: #2d3848;
+}
+
+:host-context(html[data-theme='dark']) .click-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+:host-context(html[data-theme='dark']) .list-error {
+  background: rgba(248, 2, 3, 0.12);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #fca5a5;
+}
+
+/* Modal: Detalle del boleto */
+:host-context(html[data-theme='dark']) .modal-backdrop {
+  background: rgb(4 5 122 / 0.65);
+}
+
+:host-context(html[data-theme='dark']) .modal {
+  background: #1a222c;
+  border-color: #2d3848;
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.35);
+}
+
+:host-context(html[data-theme='dark']) .modal-h {
+  color: #b8c8f0;
+}
+
+:host-context(html[data-theme='dark']) .modal-b {
+  color: #9aa0a6;
+}
+
+:host-context(html[data-theme='dark']) .modal-f {
+  border-top-color: #2d3848;
+}
+
+:host-context(html[data-theme='dark']) .detail-lead,
+:host-context(html[data-theme='dark']) .detail-inline-loading,
+:host-context(html[data-theme='dark']) .order-block__status,
+:host-context(html[data-theme='dark']) .detail-section-title--json,
+:host-context(html[data-theme='dark']) .detail-mini-dl dt {
+  color: #9aa0a6;
+}
+
+:host-context(html[data-theme='dark']) .detail-section-title,
+:host-context(html[data-theme='dark']) .order-block__title,
+:host-context(html[data-theme='dark']) .detail-mini-dl dd {
+  color: #e8eaed;
+}
+
+:host-context(html[data-theme='dark']) .order-block {
+  background: #141a22;
+  border-color: #2d3848;
+}
+
+:host-context(html[data-theme='dark']) .detail-from-list,
+:host-context(html[data-theme='dark']) .detail-friendly--api {
+  border-bottom-color: #2d3848;
+  border-top-color: #2d3848;
+}
+
+:host-context(html[data-theme='dark']) .detail-json pre {
+  background: #141a22;
+  border-color: #2d3848;
+  color: #e8eaed;
+}
+
+/* “Ver” (ojito) en tabla: mantener mismo tono que el resto */
+:host-context(html[data-theme='dark']) .hint-link {
+  color: #c5cad3 !important;
+}
+
+:host-context(html[data-theme='dark']) .hint-link mat-icon {
+  color: inherit !important;
+}
+
 .modal-b {
   padding: 0.75rem 1.25rem;
   font-size: 0.9rem;

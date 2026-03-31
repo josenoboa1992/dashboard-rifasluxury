@@ -7,12 +7,14 @@ import { Observable, forkJoin, of } from 'rxjs';
 import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 
 import { LoginUser } from '../../core/auth/models/login-response.model';
+import { orderStatusLabelEs, roleLabelEs } from '../../core/helpers/ui-labels.es';
 import { AuthService } from '../../core/auth/services/auth.service';
 import { Order, OrdersService, PaginatedOrdersResponse } from '../../core/orders/services/orders.service';
 import { PaginatedParticipantsResponse, ParticipantsService } from '../../core/participants/services/participants.service';
 import { Raffle, RafflesService } from '../../core/raffles/services/raffles.service';
 import { FormatDateTimePipe } from '../../core/pipes/format-date-time.pipe';
 import { SpinnerComponent } from '../../core/ui/spinner/spinner.component';
+import { ThemeService } from '../../core/ui/theme/theme.service';
 import { ToastService } from '../../core/ui/toast/toast.service';
 import { ParticipantsComponent } from '../../feature/participants/participants.component';
 import { UsersComponent } from '../../feature/users/users.component';
@@ -70,6 +72,7 @@ export class DashboardComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly fb = inject(FormBuilder);
   private readonly toast = inject(ToastService);
+  readonly themeService = inject(ThemeService);
   private readonly ordersService = inject(OrdersService);
   private readonly rafflesService = inject(RafflesService);
   private readonly participantsService = inject(ParticipantsService);
@@ -116,6 +119,16 @@ export class DashboardComponent {
     return name.slice(0, Math.min(2, name.length)).toUpperCase();
   });
 
+  /** Solo `role === 'admin'` (insensible a mayúsculas) o `is_admin === true`. */
+  readonly isAdmin = computed(() => DashboardComponent.userIsAdmin(this.sessionUser()));
+
+  static userIsAdmin(u: LoginUser | null): boolean {
+    if (!u) return false;
+    if (u.is_admin === true) return true;
+    const role = u.role;
+    return typeof role === 'string' && role.trim().toLowerCase() === 'admin';
+  }
+
   isLoggingOut = false;
   isChangePasswordSubmitting = false;
 
@@ -148,6 +161,10 @@ export class DashboardComponent {
 
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       const v = params.get('view');
+      if (v === 'users' && !DashboardComponent.userIsAdmin(this.sessionUser())) {
+        void this.router.navigate(['/dashboard'], { replaceUrl: true });
+        return;
+      }
       if (v && DashboardComponent.URL_VIEWS.has(v)) {
         this.currentView.set(
           v as
@@ -256,14 +273,11 @@ export class DashboardComponent {
   }
 
   orderStatusLabel(status: string | undefined): string {
-    if (!status) return '—';
-    const map: Record<string, string> = {
-      pending_validation: 'Pendiente validación',
-      pending_payment: 'Pendiente pago',
-      confirmed: 'Confirmado',
-      cancelled: 'Cancelado',
-    };
-    return map[status] ?? status;
+    return orderStatusLabelEs(status);
+  }
+
+  roleLabel(role: string | undefined): string {
+    return roleLabelEs(role);
   }
 
   orderTimelineDotClass(status: string | undefined): string {
@@ -273,6 +287,10 @@ export class DashboardComponent {
     if (s === 'confirmed') return 'tl-dot ok';
     if (s === 'cancelled') return 'tl-dot muted';
     return 'tl-dot';
+  }
+
+  toggleTheme(): void {
+    this.themeService.toggle();
   }
 
   toggleSidebar(): void {
@@ -319,6 +337,9 @@ export class DashboardComponent {
       | 'numbers'
       | 'prizes',
   ): void {
+    if (view === 'users' && !DashboardComponent.userIsAdmin(this.sessionUser())) {
+      view = 'dashboard';
+    }
     this.currentView.set(view);
     if (view === 'dashboard') {
       void this.router.navigate(['/dashboard'], { replaceUrl: true });

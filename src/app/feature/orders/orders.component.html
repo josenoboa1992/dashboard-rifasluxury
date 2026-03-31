@@ -68,7 +68,7 @@
                   <span class="cell-muted">{{ order.email }}</span>
                 </div>
               </td>
-              <td>{{ order.cedula }}</td>
+              <td>{{ (order.cedula | drCedula) || '—' }}</td>
               <td>{{ order.raffle?.title ?? '—' }}</td>
               <td class="nowrap">{{ (order.total_amount | formatMoney) || '—' }}</td>
               <td>
@@ -220,7 +220,7 @@
             </div>
             <div class="detail-field">
               <span class="detail-label">Cédula</span>
-              <span class="detail-value">{{ detail.cedula }}</span>
+              <span class="detail-value">{{ (detail.cedula | drCedula) || '—' }}</span>
             </div>
             <div class="detail-field">
               <span class="detail-label">Teléfono</span>
@@ -238,7 +238,7 @@
               <span class="detail-label">Participante</span>
               <span class="detail-value">
                 @if (detail.participant) {
-                  {{ detail.participant.name }} · {{ detail.participant.cedula }}
+                  {{ detail.participant.name }} · {{ (detail.participant.cedula | drCedula) || '—' }}
                 } @else {
                   —
                 }
@@ -314,7 +314,7 @@
             <mat-divider class="order-detail-card__divider" />
             <div class="review-block">
               <div class="review-block__title">Validar pago</div>
-              <p class="review-block__hint">Solo pedidos en «Pendiente validación». Aprobar confirma y marca boletos vendidos; rechazar libera números y cancela el pedido.</p>
+              <p class="review-block__hint">Solo pedidos en «Pendiente». Aprobar confirma y marca boletos vendidos; rechazar libera números y cancela el pedido.</p>
               <mat-form-field appearance="outline" class="review-notes-field" subscriptSizing="dynamic">
                 <mat-label>Notas del administrador</mat-label>
                 <textarea matInput rows="3" [formControl]="reviewNotes" placeholder="Opcional"></textarea>

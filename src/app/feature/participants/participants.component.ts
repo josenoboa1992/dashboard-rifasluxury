@@ -13,6 +13,11 @@ import {
   ParticipantPayload,
   ParticipantsService,
 } from '../../core/participants/services/participants.service';
+import { digitsOnly } from '../../core/helpers/dr-phone-cedula-format';
+import { DrPhonePipe } from '../../core/pipes/dr-phone.pipe';
+import { DrCedulaPipe } from '../../core/pipes/dr-cedula.pipe';
+import { DrPhoneMaskDirective } from '../../core/ui/masks/dr-phone-mask.directive';
+import { DrCedulaMaskDirective } from '../../core/ui/masks/dr-cedula-mask.directive';
 
 @Component({
   selector: 'app-participants',
@@ -24,6 +29,10 @@ import {
     FormatDateTimePipe,
     MatIconModule,
     ConfirmDialogComponent,
+    DrPhonePipe,
+    DrCedulaPipe,
+    DrPhoneMaskDirective,
+    DrCedulaMaskDirective,
   ],
   templateUrl: './participants.component.html',
   styleUrl: './participants.component.css',
@@ -194,10 +203,12 @@ export class ParticipantsComponent {
     this.modalError.set(null);
 
     const value = this.participantForm.getRawValue();
+    const cedulaDigits = digitsOnly(value.cedula);
+    const phoneDigits = digitsOnly(value.phone);
     const payload: ParticipantPayload = {
       name: value.name,
-      cedula: value.cedula?.trim() ? value.cedula : null,
-      phone: value.phone?.trim() ? value.phone : null,
+      cedula: cedulaDigits ? cedulaDigits : null,
+      phone: phoneDigits ? phoneDigits : null,
       email: value.email,
     };
 

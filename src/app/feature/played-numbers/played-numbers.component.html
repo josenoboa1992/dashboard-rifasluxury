@@ -45,7 +45,7 @@
         Total vendidos: {{ total() }}
         <span class="range"> | {{ fromItem() }}-{{ toItem() }} de {{ total() }}</span>
         @if (hasActiveTicketFilter()) {
-          <span class="range filter-hint"> · {{ visibleTickets().length }} de {{ tickets().length }} en esta página</span>
+          <span class="range filter-hint"> · {{ visibleTickets().length }} de {{ tickets().length }} boletos en esta página</span>
         }
       </div>
       <div class="toolbar-actions">
@@ -123,8 +123,7 @@
                 <td class="mono muted-sm">{{ latestOrderSummary(row) }}</td>
                 <td class="col-action">
                   <span class="hint-link">
-                    <mat-icon aria-hidden="true">chevron_right</mat-icon>
-                    Ver
+                    <mat-icon aria-hidden="true">visibility</mat-icon>
                   </span>
                 </td>
               </tr>
@@ -180,7 +179,7 @@
                     <h4 class="order-block__title">
                       Pedido #{{ ord.id }}
                       @if (ord.status) {
-                        <span class="order-block__status"> · {{ ord.status }}</span>
+                        <span class="order-block__status"> · {{ statusLabel(ord.status) }}</span>
                       }
                     </h4>
                     @if (ord.participant; as part) {
@@ -217,7 +216,34 @@
                         }
                       </dl>
                     } @else {
-                      <p class="muted">Sin participante en este pedido.</p>
+                      @if (($any(ord).customer_name ?? '').trim()) {
+                        <dl class="detail-mini-dl">
+                          <div>
+                            <dt>Nombre</dt>
+                            <dd>{{ $any(ord).customer_name }}</dd>
+                          </div>
+                          @if ($any(ord).email) {
+                            <div>
+                              <dt>Correo</dt>
+                              <dd>{{ $any(ord).email }}</dd>
+                            </div>
+                          }
+                          @if ($any(ord).phone) {
+                            <div>
+                              <dt>Teléfono</dt>
+                              <dd>{{ $any(ord).phone }}</dd>
+                            </div>
+                          }
+                          @if ($any(ord).cedula) {
+                            <div>
+                              <dt>Cédula</dt>
+                              <dd>{{ $any(ord).cedula }}</dd>
+                            </div>
+                          }
+                        </dl>
+                      } @else {
+                        <p class="muted">Sin participante en este pedido.</p>
+                      }
                     }
                   </section>
                 }
@@ -295,7 +321,7 @@
                   @if (o['status']) {
                     <div>
                       <dt>Estado</dt>
-                      <dd>{{ o['status'] }}</dd>
+                      <dd>{{ statusLabel($any(o['status'])) }}</dd>
                     </div>
                   }
                   @if (o['customer_name']) {

@@ -13,6 +13,7 @@ import {
 } from '../../core/raffles/services/raffles.service';
 import { CategoriesService, Category } from '../../core/categories/services/categories.service';
 import { formatMoneyDop } from '../../core/helpers/money-format.helper';
+import { raffleStatusLabelEs } from '../../core/helpers/ui-labels.es';
 import { FormatDateTimePipe } from '../../core/pipes/format-date-time.pipe';
 import { FormatMoneyPipe } from '../../core/pipes/format-money.pipe';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -21,6 +22,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 type RaffleTimePrefix = 'starts_at' | 'ends_at' | 'draw_at';
 
@@ -40,6 +42,7 @@ type RaffleTimePrefix = 'starts_at' | 'ends_at' | 'draw_at';
     MatNativeDateModule,
     MatIconModule,
     MatSelectModule,
+    MatSlideToggleModule,
   ],
   templateUrl: './raffles.component.html',
   styleUrl: './raffles.component.css',
@@ -162,6 +165,7 @@ export class RafflesComponent {
       draw_at_hour: this.fb.nonNullable.control(8, [Validators.required, Validators.min(1), Validators.max(12)]),
       draw_at_minute: this.fb.nonNullable.control(0, [Validators.required, Validators.min(0), Validators.max(59)]),
       draw_at_ampm: this.fb.nonNullable.control<'am' | 'pm'>('pm', [Validators.required]),
+      show_available_tickets: this.fb.nonNullable.control(true),
     });
     this.loadCategories();
     this.loadRaffles();
@@ -185,6 +189,10 @@ export class RafflesComponent {
     if (this.modalMode() === 'create') return 'Nueva rifa';
     if (this.modalMode() === 'edit') return 'Editar rifa';
     return 'Ver rifa';
+  }
+
+  raffleStatusLabel(status: string | null | undefined): string {
+    return raffleStatusLabelEs(status);
   }
 
   get modalSubtitle(): string {
@@ -299,6 +307,13 @@ export class RafflesComponent {
           );
         },
       });
+  }
+
+  /** API puede devolver boolean o 0/1. */
+  private static coerceShowAvailableTickets(value: unknown): boolean {
+    if (value === false || value === 0 || value === '0') return false;
+    if (value === true || value === 1 || value === '1') return true;
+    return true;
   }
 
   private parseIsoToDateAndTime(iso: string | undefined): { date: Date | null; time: string } {
@@ -452,6 +467,7 @@ export class RafflesComponent {
       draw_at_hour: 8,
       draw_at_minute: 0,
       draw_at_ampm: 'pm',
+      show_available_tickets: true,
     });
     this.selectedBannerFile.set(null);
     this.currentBannerUrl.set(null);
@@ -510,6 +526,7 @@ export class RafflesComponent {
                 draw_at_ampm: dp.ampm,
               };
             })(),
+            show_available_tickets: RafflesComponent.coerceShowAvailableTickets(detail.show_available_tickets),
           });
           this.selectedBannerFile.set(null);
           this.currentBannerUrl.set(
@@ -614,6 +631,7 @@ export class RafflesComponent {
       starts_at: this.combineDateTimeToApi(value.starts_at_date as Date | null, this.getTime24('starts_at')),
       ends_at: this.combineDateTimeToApi(value.ends_at_date as Date | null, this.getTime24('ends_at')),
       draw_at: this.combineDateTimeToApi(value.draw_at_date as Date | null, this.getTime24('draw_at')),
+      show_available_tickets: !!value.show_available_tickets,
     };
 
     const isCreate = this.modalMode() === 'create';

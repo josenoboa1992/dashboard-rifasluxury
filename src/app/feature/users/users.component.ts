@@ -8,11 +8,27 @@ import { ConfirmDialogComponent } from '../../core/ui/confirm-dialog/confirm-dia
 import { ToastService } from '../../core/ui/toast/toast.service';
 import { MatIconModule } from '@angular/material/icon';
 import { User, UserPayload, UsersService } from '../../core/users/services/users.service';
+import { roleLabelEs } from '../../core/helpers/ui-labels.es';
+import { digitsOnly } from '../../core/helpers/dr-phone-cedula-format';
+import { DrPhonePipe } from '../../core/pipes/dr-phone.pipe';
+import { DrCedulaPipe } from '../../core/pipes/dr-cedula.pipe';
+import { DrPhoneMaskDirective } from '../../core/ui/masks/dr-phone-mask.directive';
+import { DrCedulaMaskDirective } from '../../core/ui/masks/dr-cedula-mask.directive';
 
 @Component({
   selector: 'app-users',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, SpinnerComponent, MatIconModule, ConfirmDialogComponent],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    SpinnerComponent,
+    MatIconModule,
+    ConfirmDialogComponent,
+    DrPhonePipe,
+    DrCedulaPipe,
+    DrPhoneMaskDirective,
+    DrCedulaMaskDirective,
+  ],
   templateUrl: './users.component.html',
   styleUrl: './users.component.css',
 })
@@ -70,6 +86,10 @@ export class UsersComponent {
 
   get isViewMode(): boolean {
     return this.userModalMode() === 'view';
+  }
+
+  roleLabel(role: string | null | undefined): string {
+    return roleLabelEs(role);
   }
 
   ngOnInit(): void {
@@ -239,10 +259,12 @@ export class UsersComponent {
     this.formError.set(null);
 
     const value = this.userForm.getRawValue();
+    const cedulaDigits = digitsOnly(value.cedula);
+    const phoneDigits = digitsOnly(value.phone);
     const payload: UserPayload = {
       name: value.name,
-      cedula: value.cedula?.trim() ? value.cedula : null,
-      phone: value.phone?.trim() ? value.phone : null,
+      cedula: cedulaDigits ? cedulaDigits : null,
+      phone: phoneDigits ? phoneDigits : null,
       role: value.role,
       profile_image_id: value.profile_image_id,
       email: value.email,

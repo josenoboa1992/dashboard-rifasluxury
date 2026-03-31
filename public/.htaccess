@@ -1,4 +1,4 @@
-# Angular SPA en Apache (cPanel). Sube el contenido de dist/.../browser junto a este archivo.
+# Angular SPA en Apache (cPanel). Sube el contenido de dist/dashboard-rifasluxury/browser junto a este archivo.
 # Si la app está en una subcarpeta, cambia RewriteBase (ej. /mi-app/)
 
 <IfModule mod_rewrite.c>

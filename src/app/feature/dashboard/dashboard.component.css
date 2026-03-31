@@ -19,6 +19,16 @@
   -webkit-font-smoothing: antialiased;
 }
 
+:host-context(html[data-theme='dark']) {
+  --rl-bg: #0f1419;
+  --rl-surface: #1a222c;
+  --rl-text: #e8eaed;
+  --rl-muted: #9aa0a6;
+  --rl-border: #2d3848;
+  --rl-navy: #4a5fc0;
+  --rl-navy-deep: #2a3770;
+}
+
 .shell {
   display: flex;
   min-height: 100vh;
@@ -78,6 +88,20 @@
   padding: 0.75rem 0.75rem 1.25rem;
 }
 
+.sidebar-footer {
+  flex-shrink: 0;
+  padding: 0.75rem 0.75rem 1rem;
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.sidebar-footer .nav-section {
+  margin-top: 0;
+}
+
+.sidebar-footer .nav-section:first-child {
+  margin-top: 0;
+}
+
 .nav-section {
   margin-top: 1rem;
 }
@@ -126,9 +150,19 @@
     box-shadow 0.15s ease;
 }
 
-a.nav-item {
+a.nav-item,
+button.nav-item {
   text-decoration: none;
   box-sizing: border-box;
+}
+
+button.nav-item {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-item:focus-visible {
+  outline: 2px solid var(--rl-cyan);
+  outline-offset: 2px;
 }
 
 .nav-item:hover {
@@ -330,6 +364,19 @@ a.nav-item {
   font-size: 0.7rem;
   color: var(--rl-muted);
   text-transform: lowercase;
+}
+
+:host-context(html[data-theme='dark']) .user-pill {
+  background: #141a22;
+  border-color: #2d3848;
+}
+
+:host-context(html[data-theme='dark']) .user-name {
+  color: #ffffff !important;
+}
+
+:host-context(html[data-theme='dark']) .user-role {
+  color: #b8c8f0 !important;
 }
 
 .avatar {
@@ -1211,5 +1258,21 @@ a.nav-item {
   .modal {
     max-height: min(90dvh, 720px);
   }
+}
+
+/* En modo oscuro el sidebar debe verse gris oscuro (sin “azul” dominante). */
+:host-context(html[data-theme='dark']) .sidebar {
+  background: linear-gradient(180deg, #1b222c 0%, #0f1419 100%);
+  color: #e8eaed;
+  border-right: 1px solid rgb(255 255 255 / 0.08);
+  box-shadow: 4px 0 24px rgb(0 0 0 / 0.35);
+}
+
+:host-context(html[data-theme='dark']) .brand {
+  border-bottom: 1px solid rgb(255 255 255 / 0.06);
+}
+
+:host-context(html[data-theme='dark']) .brand img {
+  filter: drop-shadow(0 0 12px rgb(148 163 184 / 0.25));
 }
 

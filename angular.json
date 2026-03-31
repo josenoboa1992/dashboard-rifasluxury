@@ -71,7 +71,9 @@
                 }
               ],
               "outputHashing": "all",
-              "outputMode": "static"
+              "outputMode": "static",
+              "server": false,
+              "ssr": false
             }
           },
           "defaultConfiguration": "production"
@@ -84,6 +86,9 @@
             },
             "development": {
               "buildTarget": "dashboard-rifasluxury:build:development"
+            },
+            "static": {
+              "buildTarget": "dashboard-rifasluxury:build:static"
             }
           },
           "defaultConfiguration": "development"

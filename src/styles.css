@@ -232,3 +232,469 @@ mat-datepicker-content,
   color: #2c3552;
   font-size: 0.95rem;
 }
+
+/* —— Hover unificado: botones de la app (.btn, variantes) y Material —— */
+.btn:not(:disabled) {
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.15s ease,
+    filter 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.22) inset,
+    0 10px 22px rgba(248, 2, 3, 0.28);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: #f4f6f9;
+  border-color: #c5d0e0;
+  color: #1b2a4a;
+  transform: translateY(-1px);
+}
+
+.btn-danger:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.btn-inline:not(.active-page):hover:not(:disabled) {
+  background: #f0f4fa;
+  border-color: #b8c4d8;
+  color: #0f172a;
+  transform: translateY(-1px);
+}
+
+.btn-inline.active-page:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+.btn-inline.danger:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #f0a8a8;
+}
+
+/* Forgot-password: .btn.primary / .btn.ghost / .btn.link */
+.btn.primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 10px 22px rgba(248, 2, 3, 0.28);
+}
+
+.btn.ghost:hover:not(:disabled) {
+  background: rgb(5 184 243 / 0.16);
+  border-color: rgb(5 184 243 / 0.35);
+  transform: translateY(-1px);
+}
+
+.btn.link:hover:not(:disabled) {
+  filter: brightness(1.05);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Material: modales, órdenes, datepicker (sin duplicar .action-icon del listado) */
+.mat-mdc-raised-button:not(:disabled):hover,
+.mat-mdc-unelevated-button:not(:disabled):hover {
+  filter: brightness(1.05);
+}
+
+.mat-mdc-outlined-button:not(:disabled):hover {
+  background: rgba(4, 5, 122, 0.05);
+}
+
+.mat-mdc-outlined-button.mat-primary:not(:disabled):hover {
+  background: rgba(248, 2, 3, 0.07);
+}
+
+.mat-mdc-stroked-button:not(:disabled):hover {
+  background: rgba(4, 5, 122, 0.05);
+}
+
+.mat-mdc-icon-button:not(:disabled):hover {
+  background: rgba(4, 5, 122, 0.08);
+}
+
+.mat-mdc-text-button:not(:disabled):hover {
+  background: rgba(4, 5, 122, 0.06);
+}
+
+/* Slide toggle (mat-slide-toggle) a la misma tipografía */
+.mat-mdc-slide-toggle,
+.mat-mdc-slide-toggle .mdc-form-field,
+.mat-mdc-slide-toggle .mdc-switch__label,
+.mat-mdc-slide-toggle .mat-mdc-slide-toggle-label {
+  font-family: var(--app-font-family) !important;
+}
+
+/* Slide toggle: label interno blanco en modo oscuro */
+html[data-theme='dark'] .mat-mdc-slide-toggle .mat-internal-form-field {
+  color: #ffffff !important;
+  font-family: var(--app-font-family) !important;
+}
+
+/* —— Modo oscuro (misma clave `data-theme` que el proyecto cli) —— */
+html[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+html[data-theme='dark'] body {
+  background: #0f1419;
+}
+
+html[data-theme='dark'] .action-icon--view {
+  color: #c5cad3;
+}
+html[data-theme='dark'] .action-icon--view:hover:not(:disabled) {
+  background: rgba(197, 202, 211, 0.14);
+}
+html[data-theme='dark'] .action-icon--tickets {
+  color: #4ade80;
+}
+html[data-theme='dark'] .action-icon--tickets:hover:not(:disabled) {
+  background: rgba(74, 222, 128, 0.14);
+}
+html[data-theme='dark'] .action-icon--edit {
+  color: #fbbf24;
+}
+html[data-theme='dark'] .action-icon--edit:hover:not(:disabled) {
+  background: rgba(251, 191, 36, 0.14);
+}
+html[data-theme='dark'] .action-icon--delete {
+  color: #f87171;
+}
+html[data-theme='dark'] .action-icon--delete:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.14);
+}
+
+html[data-theme='dark'] .fullscreen-save-overlay__panel {
+  background: #1a222c;
+  border-color: #2d3848;
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.45);
+}
+html[data-theme='dark'] .fullscreen-save-overlay__text {
+  color: #e8eaed;
+}
+
+html[data-theme='dark'] .btn-ghost:hover:not(:disabled) {
+  background: #252d38;
+  border-color: #3d4a5c;
+  color: #e8eaed;
+}
+
+html[data-theme='dark'] .btn-inline:not(.active-page):hover:not(:disabled) {
+  background: #252d38;
+  border-color: #3d4a5c;
+  color: #e8eaed;
+}
+
+html[data-theme='dark'] .btn-inline.danger:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+html[data-theme='dark'] .mat-mdc-outlined-button:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+html[data-theme='dark'] .mat-mdc-outlined-button.mat-primary:not(:disabled):hover {
+  background: rgba(248, 2, 3, 0.12);
+}
+html[data-theme='dark'] .mat-mdc-stroked-button:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+html[data-theme='dark'] .mat-mdc-icon-button:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+html[data-theme='dark'] .mat-mdc-text-button:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme='dark'] .mat-mdc-dialog-container .mdc-dialog__surface,
+html[data-theme='dark'] .mat-mdc-dialog-container {
+  --mdc-dialog-container-color: #1a222c;
+  --mdc-dialog-supporting-text-color: #e8eaed;
+  --mat-dialog-container-max-width: min(96vw, 720px);
+}
+
+html[data-theme='dark'] .mat-mdc-dialog-container .mat-mdc-dialog-title,
+html[data-theme='dark'] .mat-mdc-dialog-container .mdc-dialog__title {
+  color: #e8eaed;
+}
+
+html[data-theme='dark'] .mat-mdc-select-panel,
+html[data-theme='dark'] .mat-mdc-menu-panel {
+  background: #1a222c !important;
+  border: 1px solid #2d3848;
+}
+
+html[data-theme='dark'] .mat-mdc-option .mdc-list-item__primary-text {
+  color: #e8eaed !important;
+}
+
+html[data-theme='dark'] .mat-datepicker-content,
+html[data-theme='dark'] .mat-datepicker-content-container {
+  background: #1a222c !important;
+  color: #e8eaed;
+  border: 1px solid #2d3848;
+}
+
+html[data-theme='dark'] .mat-calendar-body-cell-content {
+  color: #e8eaed;
+}
+
+html[data-theme='dark'] .mat-calendar-table-header th {
+  color: #9aa0a6;
+}
+
+html[data-theme='dark'] app-dashboard .page-head h1,
+html[data-theme='dark'] app-dashboard .modal-title {
+  color: #b8c8f0 !important;
+}
+
+html[data-theme='dark'] app-dashboard .page-head p,
+html[data-theme='dark'] app-dashboard .modal-subtitle {
+  color: #9aa0a6 !important;
+}
+
+html[data-theme='dark'] app-dashboard .panel,
+html[data-theme='dark'] app-dashboard .users-panel {
+  background: #1a222c !important;
+  border-color: #2d3848 !important;
+}
+
+html[data-theme='dark'] app-dashboard .total,
+html[data-theme='dark'] app-dashboard .users-total,
+html[data-theme='dark'] app-dashboard .range,
+html[data-theme='dark'] app-dashboard .users-range,
+html[data-theme='dark'] app-dashboard .tickets-meta,
+html[data-theme='dark'] app-dashboard .tickets-page {
+  color: #c5cad3 !important;
+}
+
+html[data-theme='dark'] app-dashboard .search input,
+html[data-theme='dark'] app-dashboard .users-search input,
+html[data-theme='dark'] app-dashboard .status-filter,
+html[data-theme='dark'] app-dashboard .raffle-select,
+html[data-theme='dark'] app-dashboard .per-page-select,
+html[data-theme='dark'] app-dashboard .form-grid input:not([type='file']),
+html[data-theme='dark'] app-dashboard .form-grid textarea,
+html[data-theme='dark'] app-dashboard .form-grid select,
+html[data-theme='dark'] app-dashboard .modal input:not([type='file']),
+html[data-theme='dark'] app-dashboard .modal textarea,
+html[data-theme='dark'] app-dashboard .modal select,
+html[data-theme='dark'] app-dashboard .cp-input {
+  background: #141a22 !important;
+  border-color: #3d4a5c !important;
+  color: #e8eaed !important;
+}
+
+html[data-theme='dark'] app-dashboard .form-grid label,
+html[data-theme='dark'] app-dashboard .form-grid label span {
+  color: #c5cad3 !important;
+}
+
+html[data-theme='dark'] app-dashboard .table th {
+  color: #b0b8c8 !important;
+  border-bottom-color: #2d3848 !important;
+}
+
+html[data-theme='dark'] app-dashboard .table td {
+  color: #e8eaed !important;
+  border-bottom-color: #2d3848 !important;
+}
+
+html[data-theme='dark'] app-dashboard .table tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+html[data-theme='dark'] app-dashboard .empty,
+html[data-theme='dark'] app-dashboard .avatar-fallback,
+html[data-theme='dark'] app-dashboard .list-error {
+  color: #b0b8c8 !important;
+}
+
+html[data-theme='dark'] app-dashboard .list-error {
+  background: rgba(248, 2, 3, 0.12) !important;
+  border-color: rgba(248, 113, 113, 0.35) !important;
+  color: #fca5a5 !important;
+}
+
+html[data-theme='dark'] app-dashboard .btn-ghost {
+  background: #1a222c !important;
+  color: #c5cad3 !important;
+  border-color: #2d3848 !important;
+}
+
+html[data-theme='dark'] app-dashboard .btn-primary {
+  color: #fff !important;
+}
+
+html[data-theme='dark'] app-dashboard .btn-inline {
+  border-color: #3d4a5c !important;
+  background: #141a22 !important;
+  color: #e8eaed !important;
+}
+
+html[data-theme='dark'] app-dashboard .btn-inline.active-page,
+html[data-theme='dark'] app-dashboard .active-page {
+  background: #3d5a9e !important;
+  color: #fff !important;
+  border-color: #3d5a9e !important;
+}
+
+html[data-theme='dark'] app-dashboard .btn-inline.danger {
+  border-color: rgba(248, 113, 113, 0.45) !important;
+  color: #fca5a5 !important;
+}
+
+html[data-theme='dark'] app-dashboard .modal-backdrop {
+  background: rgb(4 5 122 / 0.65) !important;
+}
+
+html[data-theme='dark'] app-dashboard .modal {
+  background: #1a222c !important;
+  border-color: #2d3848 !important;
+}
+
+html[data-theme='dark'] app-dashboard .modal-h {
+  border-bottom-color: #2d3848 !important;
+}
+
+html[data-theme='dark'] app-dashboard .modal-f {
+  border-top-color: #2d3848 !important;
+}
+
+html[data-theme='dark'] app-dashboard .banner-preview {
+  background: #141a22 !important;
+  border-color: #3d4a5c !important;
+}
+
+html[data-theme='dark'] app-dashboard .banner-preview-label {
+  color: #9aa0a6 !important;
+}
+
+html[data-theme='dark'] app-dashboard .input-help,
+html[data-theme='dark'] app-dashboard .field-error {
+  color: #9aa0a6 !important;
+}
+
+html[data-theme='dark'] app-dashboard .field-error {
+  color: #fca5a5 !important;
+}
+
+html[data-theme='dark'] app-dashboard .raffle-avatar {
+  border-color: #3d4a5c !important;
+  background: #141a22 !important;
+}
+
+html[data-theme='dark'] app-dashboard .legend-item.available {
+  background: rgba(34, 197, 94, 0.15) !important;
+  color: #4ade80 !important;
+  border-color: rgba(74, 222, 128, 0.35) !important;
+}
+
+html[data-theme='dark'] app-dashboard .legend-item.unavailable {
+  background: rgba(248, 113, 113, 0.12) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(248, 113, 113, 0.35) !important;
+}
+
+html[data-theme='dark'] app-dashboard .ticket-chip {
+  background: rgba(34, 197, 94, 0.15) !important;
+  color: #4ade80 !important;
+  border-color: rgba(74, 222, 128, 0.35) !important;
+}
+
+html[data-theme='dark'] app-dashboard .ticket-chip.unavailable {
+  background: rgba(248, 113, 113, 0.12) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(248, 113, 113, 0.35) !important;
+}
+
+html[data-theme='dark'] app-dashboard .tickets-loading {
+  color: #9aa0a6 !important;
+}
+
+html[data-theme='dark'] app-dashboard .mat-mdc-form-field .mat-mdc-input-element,
+html[data-theme='dark'] app-dashboard .mat-mdc-form-field .mat-mdc-select-value,
+html[data-theme='dark'] app-dashboard .mat-mdc-form-field .mat-mdc-select-min-line {
+  color: #e8eaed !important;
+}
+
+html[data-theme='dark'] app-dashboard .mat-mdc-text-field-wrapper {
+  background: #141a22 !important;
+}
+
+html[data-theme='dark'] app-dashboard .mdc-notched-outline__leading,
+html[data-theme='dark'] app-dashboard .mdc-notched-outline__notch,
+html[data-theme='dark'] app-dashboard .mdc-notched-outline__trailing {
+  border-color: #3d4a5c !important;
+}
+
+html[data-theme='dark'] app-dashboard .mat-mdc-form-field.mat-focused .mdc-notched-outline__leading,
+html[data-theme='dark'] app-dashboard .mat-mdc-form-field.mat-focused .mdc-notched-outline__notch,
+html[data-theme='dark'] app-dashboard .mat-mdc-form-field.mat-focused .mdc-notched-outline__trailing {
+  border-color: #05b8f3 !important;
+}
+
+html[data-theme='dark'] app-dashboard .mat-mdc-form-field .mat-mdc-floating-label,
+html[data-theme='dark'] app-dashboard .mat-mdc-form-field .mdc-floating-label--float-above {
+  color: #9aa0a6 !important;
+}
+
+html[data-theme='dark'] app-dashboard .orders-dialog .mat-mdc-dialog-container,
+html[data-theme='dark'] app-dashboard .mat-mdc-dialog-surface {
+  background: #1a222c !important;
+}
+
+html[data-theme='dark'] app-dashboard .order-detail-label {
+  color: #9aa0a6 !important;
+}
+
+html[data-theme='dark'] app-dashboard .order-detail-value {
+  color: #e8eaed !important;
+}
+
+html[data-theme='dark'] app-dashboard .bank-card-preview {
+  background: #141a22 !important;
+  border-color: #2d3848 !important;
+}
+
+html[data-theme='dark'] app-dashboard .bank-chip {
+  color: #e8eaed !important;
+}
+
+html[data-theme='dark'] app-dashboard .winner-card,
+html[data-theme='dark'] app-dashboard .prize-card {
+  background: #141a22 !important;
+  border-color: #2d3848 !important;
+}
+
+html[data-theme='dark'] app-dashboard .winner-hint {
+  background: rgba(59, 130, 246, 0.12) !important;
+  border-color: rgba(96, 165, 250, 0.35) !important;
+  color: #93c5fd !important;
+}
+
+html[data-theme='dark'] app-dashboard .played-filters {
+  background: #141a22 !important;
+  border-color: #2d3848 !important;
+}
+
+html[data-theme='dark'] app-dashboard .played-table-wrap tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+html[data-theme='dark'] app-dashboard .category-chip {
+  background: rgba(5, 184, 243, 0.12) !important;
+  color: #67d4fb !important;
+}

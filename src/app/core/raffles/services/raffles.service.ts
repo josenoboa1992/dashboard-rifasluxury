@@ -27,6 +27,8 @@ export interface Raffle {
   starts_at: string;
   ends_at: string;
   draw_at: string;
+  /** Si el público puede ver qué tickets siguen disponibles. */
+  show_available_tickets?: boolean;
   tickets_available_count?: number;
   created_at?: string;
   updated_at?: string;
@@ -59,6 +61,7 @@ export interface RafflePayload {
   starts_at: string;
   ends_at: string;
   draw_at: string;
+  show_available_tickets: boolean;
 }
 
 export interface PaginatedAvailableTicketsResponse {
@@ -211,6 +214,7 @@ export class RafflesService {
     formData.set('starts_at', payload.starts_at);
     formData.set('ends_at', payload.ends_at);
     formData.set('draw_at', payload.draw_at);
+    formData.set('show_available_tickets', payload.show_available_tickets ? '1' : '0');
 
     return this.http.post<Raffle>(
       `${environment.apiBaseUrl}/api/admin/raffles`,
@@ -261,6 +265,9 @@ export class RafflesService {
     if (payload.starts_at !== undefined) formData.set('starts_at', payload.starts_at);
     if (payload.ends_at !== undefined) formData.set('ends_at', payload.ends_at);
     if (payload.draw_at !== undefined) formData.set('draw_at', payload.draw_at);
+    if (payload.show_available_tickets !== undefined) {
+      formData.set('show_available_tickets', payload.show_available_tickets ? '1' : '0');
+    }
 
     return this.http.post<Raffle>(
       `${environment.apiBaseUrl}/api/admin/raffles/${raffleId}`,

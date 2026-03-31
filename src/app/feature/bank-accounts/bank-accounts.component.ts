@@ -18,6 +18,8 @@ import {
   BankAccount,
   BankAccountsService,
 } from '../../core/bank-accounts/services/bank-accounts.service';
+import { digitsOnly } from '../../core/helpers/dr-phone-cedula-format';
+import { DrCedulaMaskDirective } from '../../core/ui/masks/dr-cedula-mask.directive';
 
 @Component({
   selector: 'app-bank-accounts',
@@ -320,7 +322,7 @@ export class BankAccountsComponent implements OnInit {
     fd.set('account_type', String(v['account_type'] ?? ''));
     fd.set('account_number', String(v['account_number'] ?? ''));
     fd.set('account_holder_name', String(v['account_holder_name'] ?? ''));
-    const hid = String(v['holder_id'] ?? '').trim();
+    const hid = digitsOnly(String(v['holder_id'] ?? ''));
     if (hid) fd.set('holder_id', hid);
     fd.set('currency', String(v['currency'] ?? 'DOP').trim() || 'DOP');
     fd.set('is_active', v['is_active'] ? '1' : '0');

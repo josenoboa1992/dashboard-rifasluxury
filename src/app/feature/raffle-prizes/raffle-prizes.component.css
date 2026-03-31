@@ -253,6 +253,64 @@
   color: #3a4151;
 }
 
+/* ===== Modo oscuro (modal de premios) ===== */
+:host-context(html[data-theme='dark']) .modal-backdrop {
+  background: rgb(4 5 122 / 0.65) !important;
+}
+
+:host-context(html[data-theme='dark']) .modal {
+  background: #1a222c !important;
+  border-color: #2d3848 !important;
+  box-shadow:
+    0 24px 64px rgb(0 0 0 / 0.35) !important;
+}
+
+:host-context(html[data-theme='dark']) .modal-h {
+  color: #b8c8f0 !important;
+}
+
+:host-context(html[data-theme='dark']) .modal-b {
+  color: #9aa0a6 !important;
+}
+
+:host-context(html[data-theme='dark']) .list-error {
+  background: rgba(248, 2, 3, 0.12) !important;
+  border-color: rgba(248, 113, 113, 0.35) !important;
+  color: #fca5a5 !important;
+}
+
+:host-context(html[data-theme='dark']) .detail-hint,
+:host-context(html[data-theme='dark']) .detail-desc {
+  color: #e8eaed !important;
+}
+
+:host-context(html[data-theme='dark']) .detail-hint {
+  color: #9aa0a6 !important;
+}
+
+:host-context(html[data-theme='dark']) .prize-card__hint {
+  color: #9aa0a6 !important;
+}
+
+:host-context(html[data-theme='dark']) .prize-card__title {
+  color: #b8c8f0 !important;
+}
+
+:host-context(html[data-theme='dark']) .prize-card {
+  background: #141a22 !important;
+  border-color: #2d3848 !important;
+}
+
+:host-context(html[data-theme='dark']) .prize-card__price,
+:host-context(html[data-theme='dark']) .prize-card__cta {
+  color: #e8eaed !important;
+}
+
+:host-context(html[data-theme='dark']) .prize-card__media,
+:host-context(html[data-theme='dark']) .prize-card__placeholder {
+  background: #0f1419 !important;
+}
+
 .detail-dl {
   margin: 0;
   display: grid;

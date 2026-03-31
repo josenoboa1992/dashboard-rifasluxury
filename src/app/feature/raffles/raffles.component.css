@@ -54,6 +54,17 @@
   color: #1a1d26;
 }
 .table .nowrap { white-space: nowrap; }
+.toggle-field {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.5rem 0;
+  align-items: center;
+}
+.toggle-field .input-help {
+  margin-top: 0;
+}
+
 .datetime-block.full { grid-column:1 / -1; display:grid; gap:.35rem; }
 .datetime-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.25fr); gap:.75rem; align-items:flex-start; }
 .datetime-block mat-form-field.datetime-date { width:100%; }
@@ -86,4 +97,136 @@
   color: #2c3552 !important;
   font-weight: 700 !important;
   -webkit-text-fill-color: #2c3552 !important;
+}
+
+/* ===== Modo oscuro (modal de raffles) ===== */
+:host-context(html[data-theme='dark']) .modal-backdrop {
+  background: rgb(4 5 122 / 0.65);
+}
+
+:host-context(html[data-theme='dark']) .modal {
+  background-color: #1a222c !important;
+  border-color: #2d3848;
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.35);
+}
+
+:host-context(html[data-theme='dark']) .modal-h {
+  border-bottom-color: #2d3848;
+}
+
+:host-context(html[data-theme='dark']) .modal-title {
+  color: #b8c8f0 !important;
+}
+
+:host-context(html[data-theme='dark']) .modal-subtitle {
+  color: #9aa0a6 !important;
+}
+
+:host-context(html[data-theme='dark']) .list-error {
+  background: rgba(248, 2, 3, 0.12);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #fca5a5;
+}
+
+:host-context(html[data-theme='dark']) .form-grid label {
+  color: #c5cad3;
+}
+
+:host-context(html[data-theme='dark'])
+  .form-grid
+  label
+  input,
+:host-context(html[data-theme='dark'])
+  .form-grid
+  label
+  select,
+:host-context(html[data-theme='dark'])
+  .form-grid
+  label
+  textarea {
+  background-color: #141a22 !important;
+  border-color: #2d3848;
+  color: #e8eaed !important;
+  color-scheme: dark;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+:host-context(html[data-theme='dark']) .form-grid label input::placeholder,
+:host-context(html[data-theme='dark']) .form-grid label textarea::placeholder {
+  color: rgb(154 160 166 / 0.85);
+}
+
+:host-context(html[data-theme='dark']) .field-error {
+  color: #fca5a5;
+}
+
+:host-context(html[data-theme='dark']) .input-help,
+:host-context(html[data-theme='dark']) .toggle-field .input-help {
+  color: #9aa0a6;
+}
+
+:host-context(html[data-theme='dark']) .money-readonly {
+  background-color: #141a22 !important;
+  border-color: #2d3848;
+  color: #e8eaed !important;
+  color-scheme: dark;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+:host-context(html[data-theme='dark']) .banner-preview {
+  background-color: #141a22 !important;
+  border-color: #2d3848;
+}
+
+:host-context(html[data-theme='dark']) .banner-preview-label {
+  color: #9aa0a6;
+}
+
+:host-context(html[data-theme='dark']) .banner-preview img {
+  border-color: #2d3848;
+  background: #0f1419;
+}
+
+/* Subir imagen (input file nativo) */
+:host-context(html[data-theme='dark']) .modal input[type='file'] {
+  width: 100%;
+  background-color: #141a22 !important;
+  border: 1px solid #2d3848;
+  border-radius: 0.55rem;
+  padding: 0.65rem 0.8rem;
+  color: #e8eaed !important;
+  color-scheme: dark;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+:host-context(html[data-theme='dark']) .modal input[type='file']::-webkit-file-upload-button {
+  background-color: #1a222c !important;
+  border: 1px solid #2d3848;
+  color: #e8eaed;
+  border-radius: 0.45rem;
+  padding: 0.45rem 0.7rem;
+  font-family: var(--app-font-family);
+}
+
+/* Estilo moderno compatible (Chrome/Edge/Firefox modernos) */
+:host-context(html[data-theme='dark']) .modal input[type='file']::file-selector-button {
+  background-color: #1a222c !important;
+  border: 1px solid #2d3848;
+  color: #e8eaed !important;
+  border-radius: 0.45rem;
+  padding: 0.45rem 0.7rem;
+  font-family: var(--app-font-family);
+}
+
+:host-context(html[data-theme='dark']) .toggle-field {
+  font-family: var(--app-font-family);
+}
+
+/* Slide toggle en el modal: forzamos color/legibilidad */
+:host-context(html[data-theme='dark']) ::ng-deep .mat-mdc-slide-toggle .mdc-switch__label,
+:host-context(html[data-theme='dark']) ::ng-deep .mat-mdc-slide-toggle-label {
+  color: #e8eaed !important;
 }

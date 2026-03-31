@@ -5,10 +5,12 @@ import { finalize } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { ConfirmDialogComponent } from '../../core/ui/confirm-dialog/confirm-dialog.component';
+import { orderStatusLabelEs } from '../../core/helpers/ui-labels.es';
 import { SpinnerComponent } from '../../core/ui/spinner/spinner.component';
 import { ToastService } from '../../core/ui/toast/toast.service';
 import { FormatDateTimePipe } from '../../core/pipes/format-date-time.pipe';
 import { FormatMoneyPipe } from '../../core/pipes/format-money.pipe';
+import { DrCedulaPipe } from '../../core/pipes/dr-cedula.pipe';
 import { formatMoneyDop } from '../../core/helpers/money-format.helper';
 import { Order, OrdersService } from '../../core/orders/services/orders.service';
 import { MatButtonModule } from '@angular/material/button';
@@ -27,6 +29,7 @@ import { MatInputModule } from '@angular/material/input';
     ConfirmDialogComponent,
     FormatDateTimePipe,
     FormatMoneyPipe,
+    DrCedulaPipe,
     MatButtonModule,
     MatCardModule,
     MatDividerModule,
@@ -102,13 +105,7 @@ export class OrdersComponent implements OnInit {
   }
 
   statusLabel(status: string): string {
-    const map: Record<string, string> = {
-      pending_validation: 'Pendiente validación',
-      pending_payment: 'Pendiente pago',
-      confirmed: 'Confirmado',
-      cancelled: 'Cancelado',
-    };
-    return map[status] ?? status;
+    return orderStatusLabelEs(status);
   }
 
   statusClass(status: string): string {

@@ -11,6 +11,7 @@ import {
   SoldTicketOrder,
   SoldTicketParticipant,
 } from '../../core/raffles/services/raffles.service';
+import { orderStatusLabelEs } from '../../core/helpers/ui-labels.es';
 import { SpinnerComponent } from '../../core/ui/spinner/spinner.component';
 import { ToastService } from '../../core/ui/toast/toast.service';
 import { MatIconModule } from '@angular/material/icon';
@@ -283,14 +284,30 @@ export class PlayedNumbersComponent implements OnInit {
   }
 
   ticketRowLabel(row: RaffleTicketSold): string {
-    const n = this.participantFromRow(row)?.name?.trim();
-    return n && n.length ? n : '—';
+    const p = this.participantFromRow(row) as (SoldTicketParticipant & Record<string, unknown>) | null;
+    const name = this.coerceParticipantName(p);
+    if (name) return name;
+
+    const o = this.latestOrder(row) as (SoldTicketOrder & Record<string, unknown>) | undefined;
+    const cust = typeof o?.['customer_name'] === 'string' ? o['customer_name'].trim() : '';
+    if (cust) return cust;
+
+    const cedula = String(p?.cedula ?? '').trim();
+    if (cedula) return cedula;
+
+    const phone = String(p?.phone ?? '').trim();
+    if (phone) return phone;
+
+    const email = String(p?.email ?? '').trim();
+    if (email) return email;
+
+    return '—';
   }
 
   latestOrderSummary(row: RaffleTicketSold): string {
     const o = this.latestOrder(row);
     if (!o) return '—';
-    const st = o.status ? ` · ${o.status}` : '';
+    const st = o.status ? ` · ${this.statusLabel(o.status)}` : '';
     return `#${o.id}${st}`;
   }
 
@@ -349,18 +366,28 @@ export class PlayedNumbersComponent implements OnInit {
     return hay.includes(term);
   }
 
+  /** Boleto, pedido u otro estado conocido → etiqueta en español. */
   statusLabel(status: string | undefined): string {
-    if (!status) return '—';
-    const s = status.toLowerCase();
-    if (s === 'sold') return 'Vendido';
-    if (s === 'reserved') return 'Reservado';
-    if (s === 'available') return 'Disponible';
-    return status;
+    return orderStatusLabelEs(status);
   }
 
   asObj(value: unknown): Record<string, unknown> | null {
     if (value && typeof value === 'object' && !Array.isArray(value)) {
       return value as Record<string, unknown>;
+    }
+    return null;
+  }
+
+  private coerceParticipantName(
+    p: (SoldTicketParticipant & Record<string, unknown>) | null,
+  ): string | null {
+    if (!p) return null;
+    const candidates = [p.name, p['display_name'], p['full_name'], p['customer_name']];
+    for (const c of candidates) {
+      if (typeof c === 'string') {
+        const v = c.trim();
+        if (v) return v;
+      }
     }
     return null;
   }

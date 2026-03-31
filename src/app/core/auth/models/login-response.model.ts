@@ -2,6 +2,8 @@ export interface LoginUser {
   id?: number;
   name?: string;
   role?: string;
+  /** Si el API envía bandera explícita de administrador. */
+  is_admin?: boolean;
   email?: string;
   cedula?: string;
   phone?: string;

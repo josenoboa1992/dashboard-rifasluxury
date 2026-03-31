@@ -4,6 +4,7 @@ import { forkJoin, of } from 'rxjs';
 import { finalize, map, switchMap } from 'rxjs/operators';
 
 import { Raffle, RafflesService } from '../../core/raffles/services/raffles.service';
+import { raffleStatusLabelEs } from '../../core/helpers/ui-labels.es';
 import { SpinnerComponent } from '../../core/ui/spinner/spinner.component';
 import { FormatDateTimePipe } from '../../core/pipes/format-date-time.pipe';
 import { FormatMoneyPipe } from '../../core/pipes/format-money.pipe';
@@ -64,6 +65,10 @@ export class RafflePrizesComponent implements OnInit {
           this.error.set(String(message));
         },
       });
+  }
+
+  raffleStatusLabel(status: string | null | undefined): string {
+    return raffleStatusLabelEs(status);
   }
 
   raffleTitle(r: Raffle): string {

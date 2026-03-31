@@ -219,6 +219,46 @@
   color: #04057a;
 }
 
+.users-modal-hint {
+  /* placeholder (keeps spacing consistent if needed later) */
+}
+
+/* ===== Modo oscuro (modal de usuario) ===== */
+:host-context(html[data-theme='dark']) .modal {
+  background: #1a222c;
+  border-color: #2d3848;
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.35);
+}
+
+:host-context(html[data-theme='dark']) .modal-h {
+  color: #b8c8f0;
+}
+
+:host-context(html[data-theme='dark']) .modal-b {
+  color: #9aa0a6;
+}
+
+:host-context(html[data-theme='dark']) .form-grid label {
+  color: #c5cad3;
+}
+
+:host-context(html[data-theme='dark']) .form-grid input,
+:host-context(html[data-theme='dark']) .form-grid select {
+  background: #141a22;
+  border-color: #2d3848;
+  color: #e8eaed;
+}
+
+:host-context(html[data-theme='dark']) .form-grid input::placeholder {
+  color: rgb(154 160 166 / 0.85);
+}
+
+:host-context(html[data-theme='dark']) .users-error {
+  background: rgba(248, 2, 3, 0.12);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #fca5a5;
+}
+
 .modal-b {
   padding: 0.5rem 1.25rem 1.15rem;
   font-size: 0.9rem;

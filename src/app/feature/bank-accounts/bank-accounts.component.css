@@ -139,6 +139,10 @@
   white-space: nowrap;
 }
 
+:host-context(html[data-theme='dark']) .bank-cell__name {
+  color: #ffffff !important;
+}
+
 .color-dot {
   display: inline-block;
   width: 1.75rem;
@@ -244,6 +248,120 @@
   font-weight: 800;
   color: #04057a;
   letter-spacing: -0.02em;
+}
+
+/* ===== Modo oscuro (modal de cuentas bancarias) ===== */
+:host-context(html[data-theme='dark']) .bank-dialog {
+  background: #1a222c !important;
+  border-color: #2d3848 !important;
+  box-shadow:
+    0 24px 64px rgb(0 0 0 / 0.35),
+    0 0 0 1px rgba(45, 56, 72, 0.95) !important;
+}
+
+:host-context(html[data-theme='dark']) .bank-dialog__header .mat-mdc-card-title {
+  color: #b8c8f0 !important;
+}
+
+:host-context(html[data-theme='dark']) .bank-dialog__body,
+:host-context(html[data-theme='dark']) .bank-dialog__alert,
+:host-context(html[data-theme='dark']) .list-error {
+  color: #9aa0a6 !important;
+}
+
+:host-context(html[data-theme='dark']) .list-error {
+  background: rgba(248, 2, 3, 0.12) !important;
+  border-color: rgba(248, 113, 113, 0.35) !important;
+  color: #fca5a5 !important;
+}
+
+:host-context(html[data-theme='dark']) .dialog-field--toggle {
+  color: #e8eaed !important;
+}
+
+/* “Cuenta activa” (mat-slide-toggle): en dark mode el label suele quedar con poco contraste. */
+:host-context(html[data-theme='dark']) ::ng-deep .mat-mdc-slide-toggle .mdc-switch__label,
+:host-context(html[data-theme='dark']) ::ng-deep .mat-mdc-slide-toggle-label {
+  color: #ffffff !important;
+}
+
+/* Ajuste visual del switch (track/handle) en modo oscuro */
+:host-context(html[data-theme='dark']) ::ng-deep .mat-mdc-slide-toggle .mdc-switch__track::before {
+  background-color: #2d3848 !important;
+}
+
+:host-context(html[data-theme='dark']) ::ng-deep .mat-mdc-slide-toggle .mdc-switch__handle {
+  background-color: #141a22 !important;
+}
+
+:host-context(html[data-theme='dark']) ::ng-deep .mat-mdc-slide-toggle .mdc-switch__icons .mdc-switch__icon {
+  color: #e8eaed !important;
+}
+
+/* Overrides adicionales (track/thumb reales) */
+:host-context(html[data-theme='dark']) ::ng-deep .mat-mdc-slide-toggle .mdc-switch__track {
+  background-color: #2d3848 !important;
+}
+
+:host-context(html[data-theme='dark']) ::ng-deep .mat-mdc-slide-toggle .mdc-switch__thumb-underlay {
+  background-color: #141a22 !important;
+}
+
+:host-context(html[data-theme='dark']) ::ng-deep .mat-mdc-slide-toggle .mdc-switch__thumb {
+  background-color: #e8eaed !important;
+}
+
+/* Estado activado (checked): usar azul del tema para que no se vea “oscuro” */
+:host-context(html[data-theme='dark'])
+  ::ng-deep
+  .mat-mdc-slide-toggle.mat-mdc-slide-toggle-checked
+  .mdc-switch__track {
+  background-color: rgba(5, 184, 243, 0.35) !important;
+}
+
+:host-context(html[data-theme='dark'])
+  ::ng-deep
+  .mat-mdc-slide-toggle.mat-mdc-slide-toggle-checked
+  .mdc-switch__handle {
+  background-color: #e8eaed !important;
+}
+
+:host-context(html[data-theme='dark'])
+  ::ng-deep
+  .mat-mdc-slide-toggle.mat-mdc-slide-toggle-checked
+  .mdc-switch__thumb {
+  background-color: #ffffff !important;
+}
+
+/* “Vista previa actual” */
+:host-context(html[data-theme='dark']) .upload-block__title {
+  color: #c5cad3;
+}
+
+:host-context(html[data-theme='dark']) .upload-block__hint {
+  color: #9aa0a6;
+}
+
+:host-context(html[data-theme='dark']) .upload-block__file {
+  color: #e8eaed;
+}
+
+:host-context(html[data-theme='dark']) .upload-block__file--muted {
+  color: #8b939f;
+}
+
+:host-context(html[data-theme='dark']) .logo-preview {
+  background: #141a22 !important;
+  border-color: #2d3848 !important;
+}
+
+:host-context(html[data-theme='dark']) .logo-preview__label {
+  color: #9aa0a6 !important;
+}
+
+:host-context(html[data-theme='dark']) .logo-preview img {
+  border-color: #2d3848 !important;
+  background: #0f1419;
 }
 
 .bank-dialog__body {

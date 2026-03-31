@@ -206,6 +206,46 @@
   color: #04057a;
 }
 
+:host-context(html[data-theme='dark']) .modal-backdrop {
+  background: rgb(4 5 122 / 0.65);
+}
+
+:host-context(html[data-theme='dark']) .modal {
+  background: #1a222c;
+  border-color: #2d3848;
+  box-shadow:
+    0 24px 64px rgb(0 0 0 / 0.35),
+    0 0 0 1px rgba(45, 56, 72, 0.95);
+}
+
+:host-context(html[data-theme='dark']) .modal-h {
+  color: #b8c8f0;
+}
+
+:host-context(html[data-theme='dark']) .modal-b {
+  color: #9aa0a6;
+}
+
+:host-context(html[data-theme='dark']) .list-error {
+  background: rgba(248, 2, 3, 0.12);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #fca5a5;
+}
+
+:host-context(html[data-theme='dark']) .form-grid label {
+  color: #c5cad3;
+}
+
+:host-context(html[data-theme='dark']) .form-grid input {
+  background: #141a22;
+  border-color: #2d3848;
+  color: #e8eaed;
+}
+
+:host-context(html[data-theme='dark']) .form-grid input::placeholder {
+  color: rgb(154 160 166 / 0.85);
+}
+
 .modal-b {
   padding: 0.5rem 1.25rem 1.15rem;
   font-size: 0.9rem;

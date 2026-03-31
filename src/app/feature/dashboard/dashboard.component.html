@@ -33,24 +33,26 @@
       </div>
       <div class="nav-section">
         <div class="nav-label">Gestión</div>
-        <a
-          class="nav-item"
-          routerLink="/dashboard"
-          [queryParams]="{ view: 'users' }"
-          [replaceUrl]="true"
-          [class.active]="currentView() === 'users'"
-          [attr.aria-current]="currentView() === 'users' ? 'page' : null"
-        >
-          <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-          </svg>
-          <span class="ni-label">Usuarios</span>
-          <svg class="ni-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path d="m9 18 6-6-6-6" />
-          </svg>
-        </a>
+        @if (isAdmin()) {
+          <a
+            class="nav-item"
+            routerLink="/dashboard"
+            [queryParams]="{ view: 'users' }"
+            [replaceUrl]="true"
+            [class.active]="currentView() === 'users'"
+            [attr.aria-current]="currentView() === 'users' ? 'page' : null"
+          >
+            <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            <span class="ni-label">Usuarios</span>
+            <svg class="ni-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="m9 18 6-6-6-6" />
+            </svg>
+          </a>
+        }
         <a
           class="nav-item"
           routerLink="/dashboard"
@@ -171,6 +173,30 @@
         </a>
       </div>
     </nav>
+    <div class="sidebar-footer">
+      <div class="nav-section">
+        <div class="nav-label">Apariencia</div>
+        <button
+          type="button"
+          class="nav-item"
+          (click)="toggleTheme(); $event.stopPropagation()"
+          [attr.aria-label]="themeService.theme() === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'"
+          [attr.title]="themeService.theme() === 'dark' ? 'Modo claro' : 'Modo oscuro'"
+        >
+          @if (themeService.theme() === 'dark') {
+            <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke-linecap="round" />
+            </svg>
+          } @else {
+            <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke-linejoin="round" />
+            </svg>
+          }
+          <span class="ni-label">{{ themeService.theme() === 'dark' ? 'Modo claro' : 'Modo oscuro' }}</span>
+        </button>
+      </div>
+    </div>
   </aside>
 
   <div class="main">
@@ -226,7 +252,7 @@
               @if (sessionUser(); as u) {
                 <div class="user-name">{{ u.name?.trim() || 'Usuario' }}</div>
                 @if (u.role) {
-                  <div class="user-role">{{ u.role }}</div>
+                  <div class="user-role">{{ roleLabel(u.role) }}</div>
                 }
               } @else {
                 <div class="user-name">Usuario</div>
@@ -464,7 +490,7 @@
           </div>
         </section>
       </div>
-      } @else if (currentView() === 'users') {
+      } @else if (currentView() === 'users' && isAdmin()) {
       <app-users />
       } @else if (currentView() === 'participants') {
       <app-participants />
