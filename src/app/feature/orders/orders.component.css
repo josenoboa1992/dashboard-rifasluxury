@@ -465,6 +465,39 @@
   background: rgba(44, 53, 82, 0.12);
 }
 
+.table-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex-wrap: wrap;
+}
+
+.action-icon--delete {
+  color: #b91c1c;
+}
+
+.action-icon--delete:hover:not(:disabled) {
+  background: rgba(185, 28, 28, 0.12);
+}
+
+.action-icon--delete:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+:host-context(html[data-theme='dark']) .action-icon--delete {
+  color: #f87171;
+}
+
+:host-context(html[data-theme='dark']) .action-icon--delete:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.14);
+}
+
+.order-detail-delete-btn mat-icon {
+  margin-right: 0.25rem;
+  vertical-align: middle;
+}
+
 .action-icon mat-icon {
   font-size: 1.35rem;
   width: 1.35rem;

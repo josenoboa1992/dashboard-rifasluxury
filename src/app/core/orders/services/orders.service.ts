@@ -123,4 +123,14 @@ export class OrdersService {
       headers: this.authHeaders(),
     });
   }
+
+  /**
+   * Solo permitido en el servidor si el pedido está `cancelled`.
+   * DELETE /api/admin/orders/{order}
+   */
+  deleteOrder(id: number): Observable<void> {
+    return this.http.delete<void>(`${environment.apiBaseUrl}/api/admin/orders/${id}`, {
+      headers: this.authHeaders(),
+    });
+  }
 }

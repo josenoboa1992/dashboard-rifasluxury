@@ -390,6 +390,60 @@
         </article>
       </section>
 
+      <section class="panel orders-chart-panel" aria-labelledby="orders-chart-heading">
+        <div class="panel-h panel-h--row">
+          <div class="orders-chart-head-text">
+            <span id="orders-chart-heading" class="orders-chart-title">Órdenes por estado</span>
+            <p class="orders-chart-intro">Confirmadas, canceladas y pendientes</p>
+          </div>
+        </div>
+        <div class="panel-b orders-chart-body">
+          @if (statsLoading()) {
+            <div class="orders-chart-loading">
+              <app-spinner [size]="28" [stroke]="3" label="Cargando gráfico" />
+              <span>Cargando datos…</span>
+            </div>
+          } @else {
+            <div class="orders-chart-visual" role="img" [attr.aria-label]="ordersChartAriaLabel()">
+              <svg
+                class="orders-chart-trend"
+                viewBox="0 0 300 100"
+                preserveAspectRatio="xMidYMax meet"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <defs>
+                  <linearGradient id="ordersChartLineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" class="orders-chart-grad-stop orders-chart-grad-stop--a" />
+                    <stop offset="50%" class="orders-chart-grad-stop orders-chart-grad-stop--b" />
+                    <stop offset="100%" class="orders-chart-grad-stop orders-chart-grad-stop--c" />
+                  </linearGradient>
+                </defs>
+                <line class="orders-chart-baseline" x1="12" y1="88" x2="288" y2="88" />
+                <polyline class="orders-chart-poly" [attr.points]="ordersChartLinePoints()" />
+              </svg>
+              <div class="orders-chart-bars">
+                @for (item of ordersChartItems(); track item.key) {
+                  <div class="orders-chart-col">
+                    <div class="orders-chart-bar-wrap">
+                      <div
+                        class="orders-chart-bar"
+                        [class.orders-chart-bar--confirmed]="item.key === 'confirmed'"
+                        [class.orders-chart-bar--cancelled]="item.key === 'cancelled'"
+                        [class.orders-chart-bar--pending]="item.key === 'pending'"
+                        [style.height.%]="item.pct"
+                      ></div>
+                    </div>
+                    <span class="orders-chart-value">{{ item.value | number: '1.0-0' }}</span>
+                    <span class="orders-chart-label">{{ item.label }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </section>
+
       <div class="split">
         <section class="panel" aria-labelledby="quick-heading">
           <div class="panel-h" id="quick-heading">Accesos rápidos</div>
@@ -475,8 +529,8 @@
                   class="tl-row tl-row--click"
                   role="listitem"
                   tabindex="0"
-                  (click)="openView('orders')"
-                  (keydown.enter)="openView('orders')"
+                  (click)="openView('orders', o.id)"
+                  (keydown.enter)="openView('orders', o.id)"
                 >
                   <span [class]="orderTimelineDotClass(o.status)" aria-hidden="true"></span>
                   <div class="tl-main">

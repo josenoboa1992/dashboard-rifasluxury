@@ -107,7 +107,34 @@ export class DashboardComponent {
   readonly participantsTotal = signal(0);
   /** Total de pedidos con `status=confirmed` (GET /api/admin/orders?status=confirmed). */
   readonly confirmedOrdersTotal = signal(0);
+  /** Total de pedidos con `status=cancelled`. */
+  readonly cancelledOrdersTotal = signal(0);
   readonly recentOrders = signal<Order[]>([]);
+
+  /** Series para el gráfico de columnas (confirmadas / canceladas / pendientes). */
+  readonly ordersChartItems = computed(() => {
+    const confirmed = this.confirmedOrdersTotal();
+    const cancelled = this.cancelledOrdersTotal();
+    const pending = this.pendingOrdersTotal();
+    const max = Math.max(confirmed, cancelled, pending, 1);
+    const pct = (v: number) => {
+      if (v <= 0) return 0;
+      const raw = (v / max) * 100;
+      return Math.min(100, Math.max(Math.round(raw * 10) / 10, 6));
+    };
+    return [
+      { key: 'confirmed' as const, label: 'Confirmadas', value: confirmed, pct: pct(confirmed) },
+      { key: 'cancelled' as const, label: 'Canceladas', value: cancelled, pct: pct(cancelled) },
+      { key: 'pending' as const, label: 'Pendientes', value: pending, pct: pct(pending) },
+    ];
+  });
+
+  readonly ordersChartAriaLabel = computed(() => {
+    const c = this.confirmedOrdersTotal();
+    const x = this.cancelledOrdersTotal();
+    const p = this.pendingOrdersTotal();
+    return `Órdenes por estado: ${c} confirmadas, ${x} canceladas, ${p} pendientes`;
+  });
 
   readonly userInitials = computed(() => {
     const name = this.sessionUser()?.name?.trim();
@@ -216,24 +243,45 @@ export class DashboardComponent {
       confirmedOrders: this.ordersService.listOrders(1, 1, 'confirmed').pipe(
         catchError(() => of(emptyOrders)),
       ),
+      cancelledOrders: safeOrders('cancelled'),
     })
       .pipe(
-        map(({ participants, pendingVal, pendingPay, recentOrders, raffles, confirmedOrders }) => ({
+        map(
+          ({
+            participants,
+            pendingVal,
+            pendingPay,
+            recentOrders,
+            raffles,
+            confirmedOrders,
+            cancelledOrders,
+          }) => ({
+            participants,
+            pendingVal,
+            pendingPay,
+            recentOrders,
+            raffles,
+            confirmedOrdersTotal: confirmedOrders.total ?? 0,
+            cancelledOrdersTotal: cancelledOrders.total ?? 0,
+          }),
+        ),
+        finalize(() => this.statsLoading.set(false)),
+      )
+      .subscribe({
+        next: ({
           participants,
           pendingVal,
           pendingPay,
           recentOrders,
           raffles,
-          confirmedOrdersTotal: confirmedOrders.total ?? 0,
-        })),
-        finalize(() => this.statsLoading.set(false)),
-      )
-      .subscribe({
-        next: ({ participants, pendingVal, pendingPay, recentOrders, raffles, confirmedOrdersTotal }) => {
+          confirmedOrdersTotal,
+          cancelledOrdersTotal,
+        }) => {
           this.participantsTotal.set(participants.total ?? 0);
           this.pendingOrdersTotal.set((pendingVal.total ?? 0) + (pendingPay.total ?? 0));
           this.availableRafflesCount.set(DashboardComponent.countAvailableRaffles(raffles));
           this.confirmedOrdersTotal.set(confirmedOrdersTotal);
+          this.cancelledOrdersTotal.set(cancelledOrdersTotal);
           this.recentOrders.set(recentOrders.data ?? []);
         },
         error: () => {
@@ -289,6 +337,20 @@ export class DashboardComponent {
     return 'tl-dot';
   }
 
+  /** Puntos del polyline (viewBox 0 0 300 100) que une las cimas de las columnas. */
+  ordersChartLinePoints(): string {
+    const items = this.ordersChartItems();
+    const xs = [50, 150, 250];
+    const baseY = 88;
+    const maxH = 72;
+    return items
+      .map((item, i) => {
+        const y = baseY - (item.pct / 100) * maxH;
+        return `${xs[i]},${y}`;
+      })
+      .join(' ');
+  }
+
   toggleTheme(): void {
     this.themeService.toggle();
   }
@@ -336,6 +398,7 @@ export class DashboardComponent {
       | 'winners'
       | 'numbers'
       | 'prizes',
+    orderId?: number,
   ): void {
     if (view === 'users' && !DashboardComponent.userIsAdmin(this.sessionUser())) {
       view = 'dashboard';
@@ -344,8 +407,12 @@ export class DashboardComponent {
     if (view === 'dashboard') {
       void this.router.navigate(['/dashboard'], { replaceUrl: true });
     } else {
+      const queryParams: Record<string, string | number> = { view };
+      if (view === 'orders' && typeof orderId === 'number' && Number.isFinite(orderId) && orderId > 0) {
+        queryParams['orderId'] = orderId;
+      }
       void this.router.navigate(['/dashboard'], {
-        queryParams: { view },
+        queryParams,
         replaceUrl: true,
       });
     }

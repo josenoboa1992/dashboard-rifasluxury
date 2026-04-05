@@ -494,6 +494,162 @@ button.nav-item {
   }
 }
 
+/* Gráfico de columnas: órdenes por estado (línea + barras, tema claro/oscuro) */
+.orders-chart-panel {
+  margin-bottom: 1.35rem;
+}
+
+.orders-chart-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.orders-chart-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--rl-navy);
+}
+
+.orders-chart-intro {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--rl-muted);
+  line-height: 1.35;
+}
+
+.orders-chart-body {
+  padding: 1rem 1.1rem 1.25rem;
+}
+
+.orders-chart-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  min-height: 11rem;
+  color: var(--rl-muted);
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.orders-chart-visual {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.orders-chart-trend {
+  width: 100%;
+  height: auto;
+  max-height: 5.5rem;
+  display: block;
+}
+
+.orders-chart-grad-stop--a {
+  stop-color: var(--rl-cyan);
+}
+
+.orders-chart-grad-stop--b {
+  stop-color: var(--rl-navy);
+}
+
+.orders-chart-grad-stop--c {
+  stop-color: var(--rl-cyan);
+}
+
+.orders-chart-baseline {
+  stroke: var(--rl-border);
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+
+.orders-chart-poly {
+  fill: none;
+  stroke: url(#ordersChartLineGrad);
+  stroke-width: 2.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 5px rgb(5 184 243 / 0.35));
+}
+
+.orders-chart-bars {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+  min-height: 9rem;
+  padding: 0.35rem 0.35rem 0;
+}
+
+.orders-chart-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  text-align: center;
+}
+
+.orders-chart-bar-wrap {
+  width: 100%;
+  max-width: 5rem;
+  margin: 0 auto;
+  height: 8.75rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border-radius: 0.5rem 0.5rem 0 0;
+  background: linear-gradient(180deg, rgb(4 5 122 / 0.07), transparent);
+  border: 1px solid color-mix(in srgb, var(--rl-border) 80%, transparent);
+  border-bottom: none;
+}
+
+.orders-chart-bar {
+  width: 72%;
+  min-height: 0;
+  border-radius: 0.45rem 0.45rem 0.12rem 0.12rem;
+  transition: height 0.4s ease;
+  box-shadow: 0 -3px 12px rgb(4 5 122 / 0.12);
+}
+
+.orders-chart-bar--confirmed {
+  background: linear-gradient(180deg, #34d399, #059669);
+}
+
+.orders-chart-bar--cancelled {
+  background: linear-gradient(180deg, var(--rl-red), #b91c1c);
+}
+
+.orders-chart-bar--pending {
+  background: linear-gradient(180deg, var(--rl-yellow), #d97706);
+}
+
+.orders-chart-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--rl-navy);
+  line-height: 1.1;
+}
+
+.orders-chart-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--rl-muted);
+}
+
+:host-context(html[data-theme='dark']) .orders-chart-bar-wrap {
+  background: linear-gradient(180deg, rgb(74 95 192 / 0.18), transparent);
+}
+
+:host-context(html[data-theme='dark']) .orders-chart-poly {
+  filter: drop-shadow(0 0 8px rgb(5 184 243 / 0.45));
+}
+
 .stat-card {
   background: var(--rl-surface);
   border-radius: 0.85rem;

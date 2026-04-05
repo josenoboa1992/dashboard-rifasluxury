@@ -1,9 +1,14 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { finalize } from 'rxjs';
+import { NavigationEnd, Router } from '@angular/router';
+import { merge, of } from 'rxjs';
+import { distinctUntilChanged, filter, finalize, map } from 'rxjs/operators';
 
 import { environment } from '../../../environments/environment';
+import { LoginUser } from '../../core/auth/models/login-response.model';
+import { AuthService } from '../../core/auth/services/auth.service';
 import { ConfirmDialogComponent } from '../../core/ui/confirm-dialog/confirm-dialog.component';
 import { orderStatusLabelEs } from '../../core/helpers/ui-labels.es';
 import { SpinnerComponent } from '../../core/ui/spinner/spinner.component';
@@ -60,6 +65,11 @@ export class OrdersComponent implements OnInit {
 
   readonly rejectConfirmOpen = signal(false);
 
+  /** Pedido cancelado a eliminar (listado); si es null, se usa `orderDetail()` en el modal. */
+  readonly orderPendingDelete = signal<Order | null>(null);
+  readonly deleteConfirmOpen = signal(false);
+  readonly deleting = signal(false);
+
   /** Vista previa del comprobante desde el listado (imagen o PDF en iframe). */
   readonly voucherPreviewOpen = signal(false);
   readonly voucherPreviewUrl = signal<string | null>(null);
@@ -67,7 +77,12 @@ export class OrdersComponent implements OnInit {
 
   private readonly fb = inject(FormBuilder);
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly auth = inject(AuthService);
   readonly reviewNotes = this.fb.nonNullable.control('');
+
+  /** Igual que en el dashboard: `role === 'admin'` o `is_admin === true`. */
+  readonly sessionUser = signal<LoginUser | null>(this.auth.getSessionUser());
+  readonly isAdmin = computed(() => OrdersComponent.userIsAdmin(this.sessionUser()));
 
   readonly visibleOrders = computed(() => {
     const term = this.searchTerm().trim().toLowerCase();
@@ -95,10 +110,41 @@ export class OrdersComponent implements OnInit {
     return `¿Rechazar el pedido #${o.id} de ${o.customer_name} (${amt})? Los boletos asociados se liberan y el pedido queda cancelado.`;
   });
 
+  readonly deleteConfirmMessage = computed(() => {
+    const o = this.orderPendingDelete() ?? this.orderDetail();
+    if (!o) return '';
+    return `¿Eliminar definitivamente el pedido #${o.id} (${o.customer_name})? Solo los pedidos cancelados pueden eliminarse. Esta acción no se puede deshacer.`;
+  });
+
   constructor(
     private readonly ordersService: OrdersService,
     private readonly toast: ToastService,
-  ) {}
+    private readonly router: Router,
+  ) {
+    // El `ActivatedRoute` inyectado aquí no siempre refleja `/dashboard` (componente embebido); usamos la URL real del router.
+    merge(
+      of(null),
+      this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)),
+    )
+      .pipe(
+        map(() => this.parseOrderIdFromUrl()),
+        distinctUntilChanged(),
+        takeUntilDestroyed(),
+      )
+      .subscribe((id) => {
+        if (id == null) return;
+        this.loadOrderDetail(id);
+      });
+  }
+
+  private parseOrderIdFromUrl(): number | null {
+    const tree = this.router.parseUrl(this.router.url);
+    const raw = tree.queryParams['orderId'];
+    const s = Array.isArray(raw) ? raw[0] : raw;
+    if (s == null || s === '') return null;
+    const id = Number.parseInt(String(s), 10);
+    return Number.isFinite(id) && id >= 1 ? id : null;
+  }
 
   ngOnInit(): void {
     this.loadOrders();
@@ -162,13 +208,20 @@ export class OrdersComponent implements OnInit {
   }
 
   openDetail(order: Order): void {
+    void this.router.navigate(['/dashboard'], {
+      queryParams: { view: 'orders', orderId: order.id },
+      replaceUrl: true,
+    });
+  }
+
+  private loadOrderDetail(id: number): void {
     this.detailError.set(null);
     this.reviewNotes.setValue('');
     this.detailOpen.set(true);
     this.detailLoading.set(true);
     this.orderDetail.set(null);
     this.ordersService
-      .getOrder(order.id)
+      .getOrder(id)
       .pipe(finalize(() => this.detailLoading.set(false)))
       .subscribe({
         next: (detail) => {
@@ -184,12 +237,18 @@ export class OrdersComponent implements OnInit {
   }
 
   closeDetail(): void {
-    if (this.reviewing()) return;
+    if (this.reviewing() || this.deleting()) return;
     this.detailOpen.set(false);
     this.detailError.set(null);
     this.orderDetail.set(null);
     this.reviewNotes.setValue('');
     this.rejectConfirmOpen.set(false);
+    this.deleteConfirmOpen.set(false);
+    this.orderPendingDelete.set(null);
+    void this.router.navigate(['/dashboard'], {
+      queryParams: { view: 'orders', orderId: null },
+      replaceUrl: true,
+    });
   }
 
   proofMediaUrl(order: Order): string | null {
@@ -261,6 +320,78 @@ export class OrdersComponent implements OnInit {
 
   canReview(): boolean {
     return this.orderDetail()?.status === 'pending_validation';
+  }
+
+  /** Solo administradores; el API solo permite DELETE cuando el pedido está cancelado. */
+  canDeleteOrder(order: Order | null | undefined): boolean {
+    return this.isAdmin() && order?.status === 'cancelled';
+  }
+
+  private static userIsAdmin(u: LoginUser | null): boolean {
+    if (!u) return false;
+    if (u.is_admin === true) return true;
+    const role = u.role;
+    return typeof role === 'string' && role.trim().toLowerCase() === 'admin';
+  }
+
+  /**
+   * Abre el diálogo de eliminación. Si pasas `order` (desde la tabla), se usa ese; si no, el `orderDetail()` del modal.
+   */
+  openDeleteConfirm(order?: Order): void {
+    if (!this.isAdmin()) return;
+    if (this.reviewing() || this.deleting()) return;
+    const o = order ?? this.orderDetail();
+    if (!this.canDeleteOrder(o)) return;
+    this.orderPendingDelete.set(order ?? null);
+    this.deleteConfirmOpen.set(true);
+  }
+
+  closeDeleteConfirm(): void {
+    if (this.deleting()) return;
+    this.deleteConfirmOpen.set(false);
+    this.orderPendingDelete.set(null);
+  }
+
+  confirmDelete(): void {
+    if (!this.isAdmin()) {
+      this.closeDeleteConfirm();
+      this.toast.error('Solo los administradores pueden eliminar pedidos.');
+      return;
+    }
+    const o = this.orderPendingDelete() ?? this.orderDetail();
+    if (!o || o.status !== 'cancelled') {
+      this.closeDeleteConfirm();
+      return;
+    }
+    this.deleting.set(true);
+    this.ordersService
+      .deleteOrder(o.id)
+      .pipe(finalize(() => this.deleting.set(false)))
+      .subscribe({
+        next: () => {
+          this.toast.success('Pedido eliminado.');
+          this.deleteConfirmOpen.set(false);
+          this.orderPendingDelete.set(null);
+          const wasDetail = this.detailOpen() && this.orderDetail()?.id === o.id;
+          if (wasDetail) {
+            this.detailOpen.set(false);
+            this.orderDetail.set(null);
+            this.detailError.set(null);
+            this.reviewNotes.setValue('');
+            this.rejectConfirmOpen.set(false);
+            void this.router.navigate(['/dashboard'], {
+              queryParams: { view: 'orders', orderId: null },
+              replaceUrl: true,
+            });
+          }
+          this.loadOrders(this.currentPage());
+        },
+        error: (err) => {
+          this.toast.error(
+            String(err?.error?.message || err?.error?.detail || 'No se pudo eliminar el pedido.'),
+          );
+        },
+      });
   }
 
   approve(): void {

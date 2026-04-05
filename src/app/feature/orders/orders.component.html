@@ -103,15 +103,29 @@
               </td>
               <td class="nowrap">{{ order.created_at | formatDateTime }}</td>
               <td>
-                <button
-                  type="button"
-                  class="action-icon action-icon--view"
-                  (click)="openDetail(order)"
-                  aria-label="Ver pedido"
-                  title="Ver"
-                >
-                  <mat-icon aria-hidden="true">visibility</mat-icon>
-                </button>
+                <div class="table-actions">
+                  <button
+                    type="button"
+                    class="action-icon action-icon--view"
+                    (click)="openDetail(order)"
+                    aria-label="Ver pedido"
+                    title="Ver"
+                  >
+                    <mat-icon aria-hidden="true">visibility</mat-icon>
+                  </button>
+                  @if (canDeleteOrder(order)) {
+                    <button
+                      type="button"
+                      class="action-icon action-icon--delete"
+                      (click)="openDeleteConfirm(order)"
+                      [disabled]="reviewing() || deleting()"
+                      aria-label="Eliminar pedido cancelado (solo administradores)"
+                      title="Eliminar (admin, pedido cancelado)"
+                    >
+                      <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                    </button>
+                  }
+                </div>
               </td>
             </tr>
           }
@@ -238,8 +252,8 @@
               <span class="detail-label">Participante</span>
               <span class="detail-value">
                 @if (detail.participant; as p) {
-                  @if (p.name?.trim()) {
-                    {{ p.name }} 
+                  @if (p.name.trim()) {
+                    {{ p.name }}
                   } @else if (detail.customer_name.trim()) {
                     {{ detail.customer_name }} 
                   } @else {
@@ -354,7 +368,22 @@
       </mat-card-content>
 
       <mat-card-actions class="order-detail-card__actions" align="end">
-        <button type="button" mat-button (click)="closeDetail()" [disabled]="reviewing()">Cerrar</button>
+        @if (orderDetail(); as d) {
+          @if (canDeleteOrder(d)) {
+            <button
+              type="button"
+              mat-stroked-button
+              color="warn"
+              class="order-detail-delete-btn"
+              (click)="openDeleteConfirm()"
+              [disabled]="reviewing() || deleting()"
+            >
+              <mat-icon aria-hidden="true">delete_outline</mat-icon>
+              Eliminar pedido
+            </button>
+          }
+        }
+        <button type="button" mat-button (click)="closeDetail()" [disabled]="reviewing() || deleting()">Cerrar</button>
       </mat-card-actions>
     </mat-card>
   </div>
@@ -386,4 +415,15 @@
   cancelText="Cancelar"
   (confirm)="confirmReject()"
   (cancel)="closeRejectConfirm()"
+/>
+
+<app-confirm-dialog
+  [open]="deleteConfirmOpen()"
+  [loading]="deleting()"
+  title="Eliminar pedido"
+  [message]="deleteConfirmMessage()"
+  confirmText="Sí, eliminar"
+  cancelText="Cancelar"
+  (confirm)="confirmDelete()"
+  (cancel)="closeDeleteConfirm()"
 />
