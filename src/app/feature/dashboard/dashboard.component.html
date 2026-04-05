@@ -102,6 +102,24 @@
         </a>
       </div>
       <div class="nav-section">
+        <div class="nav-label">Consulta</div>
+        <a
+          class="nav-item"
+          routerLink="/dashboard"
+          [queryParams]="{ view: 'consulta' }"
+          [replaceUrl]="true"
+          [class.active]="currentView() === 'consulta'"
+          [attr.aria-current]="currentView() === 'consulta' ? 'page' : null"
+        >
+          <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3-3" stroke-linecap="round" />
+            <path d="M11 8v6M8 11h6" stroke-linecap="round" />
+          </svg>
+          <span class="ni-label">Consulta cliente</span>
+        </a>
+      </div>
+      <div class="nav-section">
         <div class="nav-label">Catálogos</div>
         <a
           class="nav-item"
@@ -390,59 +408,37 @@
         </article>
       </section>
 
-      <section class="panel orders-chart-panel" aria-labelledby="orders-chart-heading">
-        <div class="panel-h panel-h--row">
-          <div class="orders-chart-head-text">
-            <span id="orders-chart-heading" class="orders-chart-title">Órdenes por estado</span>
-            <p class="orders-chart-intro">Confirmadas, canceladas y pendientes</p>
-          </div>
-        </div>
-        <div class="panel-b orders-chart-body">
+      <mat-card class="orders-mat-chart-card" appearance="outlined" aria-labelledby="orders-chart-heading">
+        <mat-card-header class="orders-mat-chart-header">
+          <mat-card-title id="orders-chart-heading">Órdenes por estado</mat-card-title>
+          <mat-card-subtitle>Confirmadas, canceladas y pendientes</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content class="orders-mat-chart-content">
           @if (statsLoading()) {
-            <div class="orders-chart-loading">
-              <app-spinner [size]="28" [stroke]="3" label="Cargando gráfico" />
+            <div class="orders-mat-chart-loading">
+              <mat-spinner diameter="36" aria-label="Cargando gráfico" />
               <span>Cargando datos…</span>
             </div>
           } @else {
-            <div class="orders-chart-visual" role="img" [attr.aria-label]="ordersChartAriaLabel()">
-              <svg
-                class="orders-chart-trend"
-                viewBox="0 0 300 100"
-                preserveAspectRatio="xMidYMax meet"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <defs>
-                  <linearGradient id="ordersChartLineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" class="orders-chart-grad-stop orders-chart-grad-stop--a" />
-                    <stop offset="50%" class="orders-chart-grad-stop orders-chart-grad-stop--b" />
-                    <stop offset="100%" class="orders-chart-grad-stop orders-chart-grad-stop--c" />
-                  </linearGradient>
-                </defs>
-                <line class="orders-chart-baseline" x1="12" y1="88" x2="288" y2="88" />
-                <polyline class="orders-chart-poly" [attr.points]="ordersChartLinePoints()" />
-              </svg>
-              <div class="orders-chart-bars">
-                @for (item of ordersChartItems(); track item.key) {
-                  <div class="orders-chart-col">
-                    <div class="orders-chart-bar-wrap">
-                      <div
-                        class="orders-chart-bar"
-                        [class.orders-chart-bar--confirmed]="item.key === 'confirmed'"
-                        [class.orders-chart-bar--cancelled]="item.key === 'cancelled'"
-                        [class.orders-chart-bar--pending]="item.key === 'pending'"
-                        [style.height.%]="item.pct"
-                      ></div>
-                    </div>
-                    <span class="orders-chart-value">{{ item.value | number: '1.0-0' }}</span>
-                    <span class="orders-chart-label">{{ item.label }}</span>
-                  </div>
-                }
-              </div>
+            <div class="orders-mat-chart-rows" role="img" [attr.aria-label]="ordersChartAriaLabel()">
+              @for (item of ordersChartItems(); track item.key) {
+                <div class="orders-mat-chart-row">
+                  <span class="orders-mat-chart-row-label">{{ item.label }}</span>
+                  <mat-progress-bar
+                    mode="determinate"
+                    [value]="item.pct"
+                    class="orders-mat-chart-bar"
+                    [class.orders-mat-bar--confirmed]="item.key === 'confirmed'"
+                    [class.orders-mat-bar--cancelled]="item.key === 'cancelled'"
+                    [class.orders-mat-bar--pending]="item.key === 'pending'"
+                  />
+                  <span class="orders-mat-chart-row-value">{{ item.value | number: '1.0-0' }}</span>
+                </div>
+              }
             </div>
           }
-        </div>
-      </section>
+        </mat-card-content>
+      </mat-card>
 
       <div class="split">
         <section class="panel" aria-labelledby="quick-heading">
@@ -562,6 +558,8 @@
       <app-played-numbers />
       } @else if (currentView() === 'prizes') {
       <app-raffle-prizes />
+      } @else if (currentView() === 'consulta') {
+      <app-client-consultation />
       }
     </main>
   </div>

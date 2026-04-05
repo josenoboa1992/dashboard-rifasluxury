@@ -25,6 +25,10 @@ import { OrdersComponent } from '../../feature/orders/orders.component';
 import { WinnersComponent } from '../../feature/winners/winners.component';
 import { PlayedNumbersComponent } from '../../feature/played-numbers/played-numbers.component';
 import { RafflePrizesComponent } from '../../feature/raffle-prizes/raffle-prizes.component';
+import { ClientConsultationComponent } from '../../feature/client-consultation/client-consultation.component';
+import { MatCardModule } from '@angular/material/card';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
   selector: 'app-dashboard',
@@ -35,6 +39,9 @@ import { RafflePrizesComponent } from '../../feature/raffle-prizes/raffle-prizes
     ReactiveFormsModule,
     FormatDateTimePipe,
     SpinnerComponent,
+    MatCardModule,
+    MatProgressBarModule,
+    MatProgressSpinnerModule,
     UsersComponent,
     ParticipantsComponent,
     CategoriesComponent,
@@ -44,6 +51,7 @@ import { RafflePrizesComponent } from '../../feature/raffle-prizes/raffle-prizes
     WinnersComponent,
     PlayedNumbersComponent,
     RafflePrizesComponent,
+    ClientConsultationComponent,
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css',
@@ -66,6 +74,7 @@ export class DashboardComponent {
     'winners',
     'numbers',
     'prizes',
+    'consulta',
   ]);
 
   private readonly router = inject(Router);
@@ -88,6 +97,7 @@ export class DashboardComponent {
     | 'winners'
     | 'numbers'
     | 'prizes'
+    | 'consulta'
   >('dashboard');
   readonly sidebarCollapsed = signal(false);
   /** Coincide con el breakpoint CSS (max-width: 899px): drawer móvil. */
@@ -203,7 +213,8 @@ export class DashboardComponent {
             | 'orders'
             | 'winners'
             | 'numbers'
-            | 'prizes',
+            | 'prizes'
+            | 'consulta',
         );
       } else {
         this.currentView.set('dashboard');
@@ -337,20 +348,6 @@ export class DashboardComponent {
     return 'tl-dot';
   }
 
-  /** Puntos del polyline (viewBox 0 0 300 100) que une las cimas de las columnas. */
-  ordersChartLinePoints(): string {
-    const items = this.ordersChartItems();
-    const xs = [50, 150, 250];
-    const baseY = 88;
-    const maxH = 72;
-    return items
-      .map((item, i) => {
-        const y = baseY - (item.pct / 100) * maxH;
-        return `${xs[i]},${y}`;
-      })
-      .join(' ');
-  }
-
   toggleTheme(): void {
     this.themeService.toggle();
   }
@@ -397,7 +394,8 @@ export class DashboardComponent {
       | 'orders'
       | 'winners'
       | 'numbers'
-      | 'prizes',
+      | 'prizes'
+      | 'consulta',
     orderId?: number,
   ): void {
     if (view === 'users' && !DashboardComponent.userIsAdmin(this.sessionUser())) {

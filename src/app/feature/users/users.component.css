@@ -101,6 +101,10 @@
   letter-spacing: 0.02em;
 }
 
+:host-context(html[data-theme='dark']) .users-table th {
+  color: #b8c8f0  !important;
+}
+
 .users-table .empty {
   text-align: center;
   color: #71788a;

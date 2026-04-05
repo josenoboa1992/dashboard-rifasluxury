@@ -1,0 +1,496 @@
+<div class="page-head">
+  <div>
+    <h1>Consulta</h1>
+    <p>Historial del cliente</p>
+  </div>
+</div>
+
+@if (result(); as seg) {
+  <div class="segment-tag-strip" role="status" [attr.aria-label]="'Valoración: ' + seg.segment_label">
+    <div class="segment-tag-strip__bg" aria-hidden="true"></div>
+    <div class="segment-tag-strip__content">
+      <span class="segment-kicker">Valoración del cliente</span>
+      <div class="segment-pill-wrap">
+        <span [class]="'segment-pill segment-pill--' + segmentModifier(seg.segment)">
+          <svg class="segment-pill__gem" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M12 2 4 9l8 13 8-13-8-7Z"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linejoin="round"
+            />
+            <path d="M12 2v20" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.35" />
+          </svg>
+          <span class="segment-pill__label">{{ seg.segment_label }}</span>
+        </span>
+      </div>
+      @if (segmentThresholdsForDisplay(seg); as th) {
+        <p class="segment-tag-strip__thresholds">
+          Próximos niveles — Plata ≥{{ th.plata }} · Oro ≥{{ th.oro }} · Platinum ≥{{ th.platinum }} boletos
+        </p>
+      }
+    </div>
+  </div>
+}
+
+<section class="panel consult-panel" aria-label="Criterios de búsqueda">
+  <div class="panel-h">Datos del cliente</div>
+  <div class="panel-b consult-form-wrap">
+    <form [formGroup]="form" (ngSubmit)="consult()" class="consult-form">
+      <div class="consult-fields">
+        <label class="consult-field">
+          <span class="consult-label">Nombre</span>
+          <input type="text" class="consult-input" formControlName="name" placeholder="Ej. José" autocomplete="name" />
+        </label>
+        <label class="consult-field">
+          <span class="consult-label">Cédula</span>
+          <input
+            type="text"
+            class="consult-input"
+            formControlName="cedula"
+            appDrCedulaMask
+            placeholder="402-2238237-2"
+            autocomplete="off"
+            inputmode="numeric"
+          />
+        </label>
+        <label class="consult-field">
+          <span class="consult-label">Teléfono</span>
+          <input
+            type="text"
+            class="consult-input"
+            formControlName="phone"
+            appDrPhoneMask
+            placeholder="809-243-5000"
+            autocomplete="tel"
+            inputmode="tel"
+          />
+        </label>
+        <label class="consult-field">
+          <span class="consult-label">Correo</span>
+          <input type="email" class="consult-input" formControlName="email" placeholder="correo@ejemplo.com" autocomplete="email" />
+        </label>
+        <label class="consult-field">
+          <span class="consult-label">Número de boleto</span>
+          <input type="text" class="consult-input" formControlName="ticket_number" placeholder="0042" autocomplete="off" />
+        </label>
+      </div>
+      <p class="consult-hint">Indica <strong>al menos uno</strong> de los campos. Tras la consulta se completan los demás cuando hay participante coincidente.</p>
+      <div class="consult-actions">
+        <button type="submit" class="btn btn-primary" [disabled]="loading()">
+          @if (loading()) {
+            <app-spinner [size]="18" [stroke]="3" label="Consultando" />
+            Consultando…
+          } @else {
+            Consultar
+          }
+        </button>
+        <button type="button" class="btn btn-ghost" (click)="clearForm()" [disabled]="loading()">Limpiar</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+@if (result(); as r) {
+  <section class="panel consult-totals" aria-label="Totales">
+    <div class="panel-h">Resumen</div>
+    <div class="panel-b">
+      <div class="totals-grid">
+        <div class="total-chip">
+          <span class="total-chip__label">Pedidos</span>
+          <span class="total-chip__value">{{ r.totals.orders | number: '1.0-0' }}</span>
+        </div>
+        <div class="total-chip">
+          <span class="total-chip__label">Rifas distintas</span>
+          <span class="total-chip__value">{{ r.totals.raffles | number: '1.0-0' }}</span>
+        </div>
+        <div class="total-chip">
+          <span class="total-chip__label">Boletos</span>
+          <span class="total-chip__value">{{ r.totals.tickets | number: '1.0-0' }}</span>
+        </div>
+        <div class="total-chip total-chip--accent">
+          <span class="total-chip__label">Monto total</span>
+          <span class="total-chip__value">{{ r.totals.amount | formatMoney }}</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  @if (r.totals_by_status; as tbs) {
+    <section class="panel consult-by-status" aria-label="Totales por estado de pedido">
+      <div class="panel-h">Por estado de pedido</div>
+      <div class="panel-b">
+        <div class="by-status-grid">
+          <article class="by-status-card by-status-card--confirmed">
+            <h3 class="by-status-card__title">Confirmados</h3>
+            @if (tbs.confirmed; as row) {
+              <div class="by-status-card__stats">
+                <div class="by-status-stat">
+                  <span class="by-status-stat__label">Pedidos</span>
+                  <span class="by-status-stat__val">{{ row.orders | number: '1.0-0' }}</span>
+                </div>
+                <div class="by-status-stat">
+                  <span class="by-status-stat__label">Boletos</span>
+                  <span class="by-status-stat__val">{{ row.tickets | number: '1.0-0' }}</span>
+                </div>
+                <div class="by-status-stat by-status-stat--wide">
+                  <span class="by-status-stat__label">Monto</span>
+                  <span class="by-status-stat__val">{{ row.amount | formatMoney }}</span>
+                </div>
+              </div>
+            } @else {
+              <p class="by-status-card__empty">Sin datos para este estado.</p>
+            }
+          </article>
+
+          <article class="by-status-card by-status-card--pending">
+            <h3 class="by-status-card__title">Pendientes de validación</h3>
+            @if (tbs.pending_validation; as row) {
+              <div class="by-status-card__stats">
+                <div class="by-status-stat">
+                  <span class="by-status-stat__label">Pedidos</span>
+                  <span class="by-status-stat__val">{{ row.orders | number: '1.0-0' }}</span>
+                </div>
+                <div class="by-status-stat">
+                  <span class="by-status-stat__label">Boletos</span>
+                  <span class="by-status-stat__val">{{ row.tickets | number: '1.0-0' }}</span>
+                </div>
+                <div class="by-status-stat by-status-stat--wide">
+                  <span class="by-status-stat__label">Monto</span>
+                  <span class="by-status-stat__val">{{ row.amount | formatMoney }}</span>
+                </div>
+              </div>
+            } @else {
+              <p class="by-status-card__empty">Sin datos para este estado.</p>
+            }
+          </article>
+
+          <article class="by-status-card by-status-card--cancelled">
+            <h3 class="by-status-card__title">Cancelados</h3>
+            @if (tbs.cancelled; as row) {
+              <div class="by-status-card__stats">
+                <div class="by-status-stat">
+                  <span class="by-status-stat__label">Pedidos</span>
+                  <span class="by-status-stat__val">{{ row.orders | number: '1.0-0' }}</span>
+                </div>
+                <div class="by-status-stat">
+                  <span class="by-status-stat__label">Boletos</span>
+                  <span class="by-status-stat__val">{{ row.tickets | number: '1.0-0' }}</span>
+                </div>
+                <div class="by-status-stat by-status-stat--wide">
+                  <span class="by-status-stat__label">Monto</span>
+                  <span class="by-status-stat__val">{{ row.amount | formatMoney }}</span>
+                </div>
+              </div>
+            } @else {
+              <p class="by-status-card__empty">Sin datos para este estado.</p>
+            }
+          </article>
+        </div>
+      </div>
+    </section>
+  }
+
+  @if (!r.totals_by_status) {
+    @if (r.by_status; as bs) {
+      <section class="panel consult-by-status" aria-label="Totales por estado de pedido (legado)">
+        <div class="panel-h">Por estado de pedido</div>
+        <div class="panel-b">
+          <div class="by-status-grid">
+          <article class="by-status-card by-status-card--confirmed">
+            <h3 class="by-status-card__title">Confirmados</h3>
+            @if (bs.confirmed; as row) {
+              <div class="by-status-card__stats">
+                <div class="by-status-stat">
+                  <span class="by-status-stat__label">Pedidos</span>
+                  <span class="by-status-stat__val">{{ row.orders_count | number: '1.0-0' }}</span>
+                </div>
+                <div class="by-status-stat">
+                  <span class="by-status-stat__label">Boletos</span>
+                  <span class="by-status-stat__val">{{ row.tickets_count | number: '1.0-0' }}</span>
+                </div>
+                <div class="by-status-stat by-status-stat--wide">
+                  <span class="by-status-stat__label">Monto</span>
+                  <span class="by-status-stat__val">{{ row.total_amount | formatMoney }}</span>
+                </div>
+              </div>
+              <div class="by-status-card__tickets">
+                <span class="by-status-card__tickets-label">Números de boleto</span>
+                @let nums = ticketNumbersFromStatusBucket(row);
+                @if (nums.length) {
+                  <ul class="ticket-chip-list ticket-chip-list--compact" aria-label="Boletos confirmados">
+                    @for (num of nums; track $index + '-' + num) {
+                      <li class="ticket-chip">{{ num }}</li>
+                    }
+                  </ul>
+                } @else {
+                  <p class="by-status-card__empty">Sin números en la respuesta.</p>
+                }
+              </div>
+            } @else {
+              <p class="by-status-card__empty">Sin datos para este estado.</p>
+            }
+          </article>
+
+          <article class="by-status-card by-status-card--pending">
+            <h3 class="by-status-card__title">Pendientes de validación</h3>
+            @if (bs.pending_validation; as row) {
+              <div class="by-status-card__stats">
+                <div class="by-status-stat">
+                  <span class="by-status-stat__label">Pedidos</span>
+                  <span class="by-status-stat__val">{{ row.orders_count | number: '1.0-0' }}</span>
+                </div>
+                <div class="by-status-stat">
+                  <span class="by-status-stat__label">Boletos</span>
+                  <span class="by-status-stat__val">{{ row.tickets_count | number: '1.0-0' }}</span>
+                </div>
+                <div class="by-status-stat by-status-stat--wide">
+                  <span class="by-status-stat__label">Monto</span>
+                  <span class="by-status-stat__val">{{ row.total_amount | formatMoney }}</span>
+                </div>
+              </div>
+              <div class="by-status-card__tickets">
+                <span class="by-status-card__tickets-label">Números de boleto</span>
+                @let numsP = ticketNumbersFromStatusBucket(row);
+                @if (numsP.length) {
+                  <ul class="ticket-chip-list ticket-chip-list--compact" aria-label="Boletos pendientes de validación">
+                    @for (num of numsP; track $index + '-' + num) {
+                      <li class="ticket-chip ticket-chip--pending">{{ num }}</li>
+                    }
+                  </ul>
+                } @else {
+                  <p class="by-status-card__empty">Sin números en la respuesta.</p>
+                }
+              </div>
+            } @else {
+              <p class="by-status-card__empty">Sin datos para este estado.</p>
+            }
+          </article>
+
+          <article class="by-status-card by-status-card--cancelled">
+            <h3 class="by-status-card__title">Cancelados</h3>
+            @if (bs.cancelled; as row) {
+              <div class="by-status-card__stats">
+                <div class="by-status-stat">
+                  <span class="by-status-stat__label">Pedidos</span>
+                  <span class="by-status-stat__val">{{ row.orders_count | number: '1.0-0' }}</span>
+                </div>
+                <div class="by-status-stat">
+                  <span class="by-status-stat__label">Boletos</span>
+                  <span class="by-status-stat__val">{{ row.tickets_count | number: '1.0-0' }}</span>
+                </div>
+                <div class="by-status-stat by-status-stat--wide">
+                  <span class="by-status-stat__label">Monto</span>
+                  <span class="by-status-stat__val">{{ row.total_amount | formatMoney }}</span>
+                </div>
+              </div>
+              <div class="by-status-card__tickets">
+                <span class="by-status-card__tickets-label">Números de boleto</span>
+                @let numsC = ticketNumbersFromStatusBucket(row);
+                @if (numsC.length) {
+                  <ul class="ticket-chip-list ticket-chip-list--compact" aria-label="Boletos en pedidos cancelados">
+                    @for (num of numsC; track $index + '-' + num) {
+                      <li class="ticket-chip ticket-chip--cancelled">{{ num }}</li>
+                    }
+                  </ul>
+                } @else {
+                  <p class="by-status-card__empty by-status-card__empty--muted">
+                    Sin boletos listados (es habitual si al cancelar ya no quedan filas de boleto).
+                  </p>
+                }
+              </div>
+            } @else {
+              <p class="by-status-card__empty">Sin datos para este estado.</p>
+            }
+          </article>
+          </div>
+        </div>
+      </section>
+    }
+  }
+
+  <section class="history-section" aria-label="Historial por rifa">
+    <h2 class="history-section__title">Historial por rifa</h2>
+
+    @if (r.by_raffle.length === 0) {
+      <div class="panel">
+        <div class="panel-b empty">Sin movimientos por rifa.</div>
+      </div>
+    } @else {
+      <div class="history-table-grid">
+        <div class="history-table-scroll">
+          <table class="history-table">
+            <caption class="sr-only">
+              Historial por rifa; al expandir se muestran boletos por estado del pedido cuando el servidor los envía.
+            </caption>
+            <thead>
+              <tr>
+                <th class="history-table__th history-table__th--expand" scope="col"></th>
+                <th class="history-table__th" scope="col">Rifa</th>
+                <th class="history-table__th" scope="col">Estado</th>
+                <th class="history-table__th history-table__th--num" scope="col">Pedidos</th>
+                <th class="history-table__th history-table__th--num" scope="col">Boletos</th>
+                <th class="history-table__th history-table__th--num" scope="col">Monto</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of r.by_raffle; track row.raffle_id) {
+                <tr class="history-table__row">
+                  <td class="history-table__td history-table__td--expand">
+                    <button
+                      type="button"
+                      class="history-table__expand-btn"
+                      (click)="toggleRaffleTickets(row.raffle_id)"
+                      [attr.aria-expanded]="isRaffleTicketsExpanded(row.raffle_id)"
+                      [attr.aria-controls]="'raffle-tickets-' + row.raffle_id"
+                      [attr.aria-label]="
+                        (isRaffleTicketsExpanded(row.raffle_id) ? 'Ocultar' : 'Ver') +
+                        ' boletos de ' +
+                        row.raffle_title
+                      "
+                    >
+                      <svg
+                        class="history-table__chevron"
+                        [class.history-table__chevron--open]="isRaffleTicketsExpanded(row.raffle_id)"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="m6 9 6 6 6-6"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  </td>
+                  <td class="history-table__td">
+                    <span class="history-table__raffle-title">{{ row.raffle_title }}</span>
+                    <span class="history-table__raffle-id">#{{ row.raffle_id }}</span>
+                  </td>
+                  <td class="history-table__td">
+                    <span class="raffle-status-pill">{{ raffleStatusLabel(row.raffle_status) }}</span>
+                  </td>
+                  <td class="history-table__td history-table__td--num">{{ row.orders_count | number: '1.0-0' }}</td>
+                  <td class="history-table__td history-table__td--num">{{ row.tickets_count | number: '1.0-0' }}</td>
+                  <td class="history-table__td history-table__td--num history-table__td--money">
+                    {{ row.total_amount | formatMoney }}
+                  </td>
+                </tr>
+                @if (isRaffleTicketsExpanded(row.raffle_id)) {
+                  <tr class="history-table__detail">
+                    <td class="history-table__detail-cell" colspan="6">
+                      <div
+                        class="raffle-tickets"
+                        [id]="'raffle-tickets-' + row.raffle_id"
+                        role="region"
+                        [attr.aria-label]="'Boletos en ' + row.raffle_title + ' por estado'"
+                      >
+                        @if (row.by_status; as rs) {
+                          <div class="raffle-status-split">
+                            <section class="raffle-status-block raffle-status-block--confirmed">
+                              <h4 class="raffle-status-block__title">Confirmados</h4>
+                              @if (rs.confirmed; as bConf) {
+                                <div class="raffle-status-block__stats">
+                                  <span>{{ bConf.orders_count | number: '1.0-0' }} ped.</span>
+                                  <span>{{ bConf.tickets_count | number: '1.0-0' }} bol.</span>
+                                  <span class="raffle-status-block__money">{{ bConf.total_amount | formatMoney }}</span>
+                                </div>
+                                @let nc = ticketNumbersFromStatusBucket(bConf);
+                                @if (nc.length) {
+                                  <ul class="ticket-chip-list ticket-chip-list--compact" aria-label="Boletos confirmados en esta rifa">
+                                    @for (num of nc; track $index + '-' + num) {
+                                      <li class="ticket-chip">{{ num }}</li>
+                                    }
+                                  </ul>
+                                } @else {
+                                  <p class="raffle-status-block__empty">Sin boletos en este estado.</p>
+                                }
+                              } @else {
+                                <p class="raffle-status-block__empty">Sin datos.</p>
+                              }
+                            </section>
+
+                            <section class="raffle-status-block raffle-status-block--pending">
+                              <h4 class="raffle-status-block__title">Pendientes de validación</h4>
+                              @if (rs.pending_validation; as bPend) {
+                                <div class="raffle-status-block__stats">
+                                  <span>{{ bPend.orders_count | number: '1.0-0' }} ped.</span>
+                                  <span>{{ bPend.tickets_count | number: '1.0-0' }} bol.</span>
+                                  <span class="raffle-status-block__money">{{ bPend.total_amount | formatMoney }}</span>
+                                </div>
+                                @let np = ticketNumbersFromStatusBucket(bPend);
+                                @if (np.length) {
+                                  <ul class="ticket-chip-list ticket-chip-list--compact" aria-label="Boletos pendientes en esta rifa">
+                                    @for (num of np; track $index + '-' + num) {
+                                      <li class="ticket-chip ticket-chip--pending">{{ num }}</li>
+                                    }
+                                  </ul>
+                                } @else {
+                                  <p class="raffle-status-block__empty">Sin boletos en este estado.</p>
+                                }
+                              } @else {
+                                <p class="raffle-status-block__empty">Sin datos.</p>
+                              }
+                            </section>
+
+                            <section class="raffle-status-block raffle-status-block--cancelled">
+                              <h4 class="raffle-status-block__title">Cancelados</h4>
+                              @if (rs.cancelled; as bCanc) {
+                                <div class="raffle-status-block__stats">
+                                  <span>{{ bCanc.orders_count | number: '1.0-0' }} ped.</span>
+                                  <span>{{ bCanc.tickets_count | number: '1.0-0' }} bol.</span>
+                                  <span class="raffle-status-block__money">{{ bCanc.total_amount | formatMoney }}</span>
+                                </div>
+                                @let nx = ticketNumbersFromStatusBucket(bCanc);
+                                @if (nx.length) {
+                                  <ul class="ticket-chip-list ticket-chip-list--compact" aria-label="Boletos cancelados en esta rifa">
+                                    @for (num of nx; track $index + '-' + num) {
+                                      <li class="ticket-chip ticket-chip--cancelled">{{ num }}</li>
+                                    }
+                                  </ul>
+                                } @else {
+                                  <p class="raffle-status-block__empty raffle-status-block__empty--muted">
+                                    Sin boletos listados (p. ej. si al cancelar no quedan filas de boleto).
+                                  </p>
+                                }
+                              } @else {
+                                <p class="raffle-status-block__empty">Sin datos.</p>
+                              }
+                            </section>
+                          </div>
+                        } @else {
+                          @if (ticketsForRaffle(row); as ticketNums) {
+                            <div class="raffle-tickets__head">
+                              <span class="raffle-tickets__title">Todos los boletos en esta rifa</span>
+                              @if (ticketNums.length) {
+                                <span class="raffle-tickets__count">{{ ticketNums.length }} número(s)</span>
+                              }
+                            </div>
+                            @if (ticketNums.length) {
+                              <ul class="ticket-chip-list" aria-label="Números de boleto en esta rifa">
+                                @for (num of ticketNums; track $index + '-' + num) {
+                                  <li class="ticket-chip">{{ num }}</li>
+                                }
+                              </ul>
+                            } @else {
+                              <p class="raffle-tickets__empty">
+                                Esta rifa no incluye desglose por estado ni lista de números en la respuesta.
+                              </p>
+                            }
+                          }
+                        }
+                      </div>
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  </section>
+}
