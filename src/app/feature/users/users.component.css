@@ -197,6 +197,10 @@
   z-index: 100;
 }
 
+:host-context(html[data-theme='dark']) .modal-backdrop {
+  background: rgb(0 0 0 / 0.68) !important;
+}
+
 .modal {
   width: 100%;
   max-width: 24rem;

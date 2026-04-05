@@ -99,9 +99,16 @@
   -webkit-text-fill-color: #2c3552 !important;
 }
 
+:host-context(html[data-theme='dark']) ::ng-deep .raffle-detail-view .datetime-block .mat-mdc-input-element,
+:host-context(html[data-theme='dark']) ::ng-deep .raffle-detail-view .datetime-block .mat-mdc-select-value-text,
+:host-context(html[data-theme='dark']) ::ng-deep .raffle-detail-view .datetime-block .mat-mdc-select-min-line {
+  color: #e8eaed !important;
+  -webkit-text-fill-color: #e8eaed !important;
+}
+
 /* ===== Modo oscuro (modal de raffles) ===== */
 :host-context(html[data-theme='dark']) .modal-backdrop {
-  background: rgb(4 5 122 / 0.65);
+  background: rgb(0 0 0 / 0.68);
 }
 
 :host-context(html[data-theme='dark']) .modal {
@@ -132,6 +139,10 @@
   color: #c5cad3;
 }
 
+:host-context(html[data-theme='dark']) .raffle-detail-view .form-grid label {
+  color: #e8eaed;
+}
+
 :host-context(html[data-theme='dark'])
   .form-grid
   label
@@ -155,6 +166,19 @@
 :host-context(html[data-theme='dark']) .form-grid label input::placeholder,
 :host-context(html[data-theme='dark']) .form-grid label textarea::placeholder {
   color: rgb(154 160 166 / 0.85);
+}
+
+:host-context(html[data-theme='dark']) .raffle-detail-view .form-grid label input:disabled,
+:host-context(html[data-theme='dark']) .raffle-detail-view .form-grid label select:disabled,
+:host-context(html[data-theme='dark']) .raffle-detail-view .form-grid label textarea:disabled {
+  opacity: 1;
+  color: #e8eaed !important;
+  -webkit-text-fill-color: #e8eaed !important;
+}
+
+:host-context(html[data-theme='dark']) .raffle-detail-view .form-grid label input:disabled::placeholder,
+:host-context(html[data-theme='dark']) .raffle-detail-view .form-grid label textarea:disabled::placeholder {
+  color: rgb(154 160 166 / 0.9);
 }
 
 :host-context(html[data-theme='dark']) .field-error {

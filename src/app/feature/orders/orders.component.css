@@ -297,12 +297,12 @@
 }
 
 .order-detail-card__divider {
-  margin: 1rem 0 !important;
+  margin: 1.15rem 0 !important;
 }
 
 .order-detail-card__actions {
   border-top: 1px solid #eceff4;
-  padding: 0.75rem 1rem 1rem !important;
+  padding: 1rem 1rem 1.1rem !important;
   margin: 0 !important;
 }
 
@@ -356,13 +356,24 @@
   font-weight: 500;
 }
 
+.proof-block,
+.tickets-block,
+.review-block {
+  padding-bottom: 0.15rem;
+}
+
 .proof-block__title,
 .tickets-block__title,
 .review-block__title {
-  font-size: 0.82rem;
+  display: block;
+  font-size: 0.8125rem;
   font-weight: 800;
-  color: #2c3552;
-  margin-bottom: 0.5rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  /* Azul claro alineado con el título del modal (#04057a), más luminoso para subtítulo */
+  color: #4a5fc0;
+  margin: 0 0 0.65rem;
+  line-height: 1.35;
 }
 
 .proof-image-link {
@@ -395,14 +406,41 @@
 .review-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
-  margin-top: 0.5rem;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.65rem;
+  margin-bottom: 0.35rem;
+  padding-bottom: 0.85rem;
 }
 
 .review-btn--approve {
   background: linear-gradient(180deg, #15803d 0%, #166534 100%) !important;
   color: #fff !important;
   font-weight: 700 !important;
+}
+
+/* Rechazar: rojo (no azul del tema) */
+.review-btn--reject {
+  border-color: #dc2626 !important;
+  color: #b91c1c !important;
+  font-weight: 700 !important;
+}
+
+.review-btn--reject:not(:disabled):hover {
+  background: rgba(220, 38, 38, 0.08) !important;
+}
+
+.review-btn--reject:disabled {
+  opacity: 0.55;
+}
+
+/* Material outlined: asegurar borde rojo sobre el tema */
+:host ::ng-deep .review-btn--reject .mdc-button__outline {
+  border-color: #dc2626 !important;
+}
+
+:host-context(html[data-theme='dark']) ::ng-deep .review-btn--reject .mdc-button__outline {
+  border-color: #f87171 !important;
 }
 
 .action-icon {
@@ -602,7 +640,7 @@
 
 /* ===== Modo oscuro (modales Órdenes) ===== */
 :host-context(html[data-theme='dark']) .modal-backdrop {
-  background: rgb(4 5 122 / 0.70) !important;
+  background: rgb(0 0 0 / 0.68) !important;
 }
 
 :host-context(html[data-theme='dark']) .order-detail-card {
@@ -635,7 +673,7 @@
 }
 
 :host-context(html[data-theme='dark']) .detail-label {
-  color: #ffffff !important;
+  color: #b8c8f0  !important;
 }
 
 :host-context(html[data-theme='dark']) .order-detail-card__alert {
@@ -645,7 +683,7 @@
 }
 
 :host-context(html[data-theme='dark']) .voucher-preview-backdrop {
-  background: rgb(4 5 122 / 0.65) !important;
+  background: rgb(0 0 0 / 0.68) !important;
 }
 
 :host-context(html[data-theme='dark']) .voucher-preview-dialog {
@@ -684,4 +722,35 @@
 
 :host-context(html[data-theme='dark']) .detail-value {
   color: #ffffff !important;
+}
+
+/* Subtítulos de sección: mismo azul claro que el título del pedido (#b8c8f0) */
+:host-context(html[data-theme='dark']) .proof-block__title,
+:host-context(html[data-theme='dark']) .tickets-block__title,
+:host-context(html[data-theme='dark']) .review-block__title {
+  color: #b8c8f0 !important;
+}
+
+:host-context(html[data-theme='dark']) .review-block__hint {
+  color: #b0b8c8 !important;
+}
+
+:host-context(html[data-theme='dark']) .order-detail-card__actions {
+  border-top-color: #2d3848 !important;
+  padding-top: 1.1rem !important;
+  margin-top: 0.35rem !important;
+}
+
+:host-context(html[data-theme='dark']) .review-actions {
+  padding-bottom: 1rem !important;
+  margin-bottom: 0.15rem !important;
+}
+
+:host-context(html[data-theme='dark']) .review-btn--reject {
+  border-color: #f87171 !important;
+  color: #fecaca !important;
+}
+
+:host-context(html[data-theme='dark']) .review-btn--reject:not(:disabled):hover {
+  background: rgba(248, 113, 113, 0.12) !important;
 }

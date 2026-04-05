@@ -385,6 +385,15 @@ html[data-theme='dark'] .fullscreen-save-overlay__text {
   color: #e8eaed;
 }
 
+html[data-theme='dark'] .fullscreen-save-overlay__backdrop {
+  background: rgb(0 0 0 / 0.68) !important;
+}
+
+/** Overlays de Angular Material (diálogos, menús con backdrop, etc.) */
+html[data-theme='dark'] .cdk-overlay-backdrop {
+  background: rgb(0 0 0 / 0.68) !important;
+}
+
 html[data-theme='dark'] .btn-ghost:hover:not(:disabled) {
   background: #252d38;
   border-color: #3d4a5c;
@@ -557,7 +566,7 @@ html[data-theme='dark'] app-dashboard .btn-inline.danger {
 }
 
 html[data-theme='dark'] app-dashboard .modal-backdrop {
-  background: rgb(4 5 122 / 0.65) !important;
+  background: rgb(0 0 0 / 0.68) !important;
 }
 
 html[data-theme='dark'] app-dashboard .modal {

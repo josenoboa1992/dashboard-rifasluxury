@@ -19,6 +19,11 @@ export interface LoginResponse {
   access?: string;
   access_token?: string;
   jwt?: string;
+  token_type?: string;
+  /** Segundos hasta expiración (p. ej. 86400). */
+  expires_in?: number;
+  /** ISO 8601, p. ej. "2026-04-03T17:00:00+00:00". */
+  expires_at?: string;
   user?: LoginUser;
   [key: string]: unknown;
 }

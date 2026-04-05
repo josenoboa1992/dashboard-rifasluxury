@@ -237,8 +237,16 @@
             <div class="detail-field detail-field--wide">
               <span class="detail-label">Participante</span>
               <span class="detail-value">
-                @if (detail.participant) {
-                  {{ detail.participant.name }} · {{ (detail.participant.cedula | drCedula) || '—' }}
+                @if (detail.participant; as p) {
+                  @if (p.name?.trim()) {
+                    {{ p.name }} 
+                  } @else if (detail.customer_name.trim()) {
+                    {{ detail.customer_name }} 
+                  } @else {
+                    —
+                  }
+                } @else if (detail.customer_name.trim()) {
+                  {{ detail.customer_name }} 
                 } @else {
                   —
                 }
@@ -332,7 +340,7 @@
                 <button
                   type="button"
                   mat-stroked-button
-                  color="warn"
+                  class="review-btn review-btn--reject"
                   (click)="openRejectConfirm()"
                   [disabled]="reviewing()"
                 >

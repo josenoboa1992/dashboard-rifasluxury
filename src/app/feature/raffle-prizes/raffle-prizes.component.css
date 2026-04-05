@@ -255,7 +255,7 @@
 
 /* ===== Modo oscuro (modal de premios) ===== */
 :host-context(html[data-theme='dark']) .modal-backdrop {
-  background: rgb(4 5 122 / 0.65) !important;
+  background: rgb(0 0 0 / 0.68) !important;
 }
 
 :host-context(html[data-theme='dark']) .modal {
@@ -331,8 +331,12 @@
   color: #6a7284;
 }
 
+:host-context(html[data-theme='dark']) .detail-dl dt {
+  color: #b8c8f0  !important;
+}
+
 .detail-dl dd {
   margin: 0;
   font-weight: 600;
-  color: #2c3552;
+  color: #9aa0a6 ;
 }

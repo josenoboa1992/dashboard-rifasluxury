@@ -207,7 +207,7 @@
 }
 
 :host-context(html[data-theme='dark']) .modal-backdrop {
-  background: rgb(4 5 122 / 0.65);
+  background: rgb(0 0 0 / 0.68);
 }
 
 :host-context(html[data-theme='dark']) .modal {

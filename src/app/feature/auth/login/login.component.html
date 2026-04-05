@@ -7,6 +7,10 @@
     <h1>Iniciar sesión</h1>
     <p>Accede al backoffice</p>
 
+    @if (sessionExpired()) {
+      <div class="login-info" role="status">Tu sesión expiró. Vuelve a iniciar sesión.</div>
+    }
+
     @if (error && error.trim()) {
       <div class="login-error" role="alert">{{ error }}</div>
     }

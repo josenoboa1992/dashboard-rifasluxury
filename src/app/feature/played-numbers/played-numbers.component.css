@@ -330,7 +330,7 @@
 
 :host-context(html[data-theme='dark']) .picker-label,
 :host-context(html[data-theme='dark']) .per-page-label {
-  color: #c5cad3;
+  color: #e8eaed !important;
 }
 
 :host-context(html[data-theme='dark']) .raffle-select,
@@ -370,7 +370,7 @@
 
 /* Modal: Detalle del boleto */
 :host-context(html[data-theme='dark']) .modal-backdrop {
-  background: rgb(4 5 122 / 0.65);
+  background: rgb(0 0 0 / 0.68);
 }
 
 :host-context(html[data-theme='dark']) .modal {
