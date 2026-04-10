@@ -11,6 +11,7 @@ import {
 } from '../../core/raffles/services/raffles.service';
 import {
   BulkWinnerRow,
+  ManualBulkWinnerRow,
   RaffleWinner,
   RaffleWinnersService,
 } from '../../core/raffle-winners/services/raffle-winners.service';
@@ -26,6 +27,15 @@ interface BulkRow {
   display_name: string;
   photo: File | null;
   lookupError: string | null;
+}
+
+interface ManualBulkRow {
+  raffle_title: string;
+  prize_label: string;
+  display_name: string;
+  ticket_number: string;
+  notify_email: string;
+  photo: File | null;
 }
 
 @Component({
@@ -53,6 +63,8 @@ export class WinnersComponent implements OnInit {
   readonly raffles = signal<Raffle[]>([]);
 
   readonly selectedRaffle = signal<Raffle | null>(null);
+  /** Vista del listado de ganadores manuales (opción del desplegable). */
+  readonly manualWinnersViewSelected = signal(false);
 
   readonly listLoading = signal(false);
   readonly listError = signal<string | null>(null);
@@ -97,6 +109,47 @@ export class WinnersComponent implements OnInit {
   readonly bulkLookupRowIndex = signal<number | null>(null);
   readonly bulkMarkDrawn = signal(false);
 
+  readonly manualModalOpen = signal(false);
+  readonly manualSubmitting = signal(false);
+  readonly manualModalError = signal<string | null>(null);
+  readonly manualPhotoFile = signal<File | null>(null);
+
+  readonly manualBulkModalOpen = signal(false);
+  readonly manualBulkSubmitting = signal(false);
+  readonly manualBulkModalError = signal<string | null>(null);
+  readonly manualBulkRows = signal<ManualBulkRow[]>([
+    {
+      raffle_title: '',
+      prize_label: '',
+      display_name: '',
+      ticket_number: '',
+      notify_email: '',
+      photo: null,
+    },
+  ]);
+
+  readonly manualListLoading = signal(false);
+  readonly manualListError = signal<string | null>(null);
+  readonly manualWinners = signal<RaffleWinner[]>([]);
+  readonly manualCurrentPage = signal(1);
+  readonly manualLastPage = signal(1);
+  readonly manualPerPage = signal(25);
+  readonly manualFromItem = signal(0);
+  readonly manualToItem = signal(0);
+  readonly manualTotal = signal(0);
+
+  readonly manualViewOpen = signal(false);
+  readonly manualViewWinner = signal<RaffleWinner | null>(null);
+
+  readonly manualEditModalOpen = signal(false);
+  readonly manualEditSubmitting = signal(false);
+  readonly manualEditModalError = signal<string | null>(null);
+  readonly manualEditPhotoFile = signal<File | null>(null);
+  readonly manualEditWinnerId = signal<number | null>(null);
+
+  /** Si el diálogo de borrado aplica a un ganador manual (DELETE /winners/manual/{id}). */
+  readonly deleteIsManual = signal(false);
+
   addForm = this.fb.nonNullable.group({
     number: ['', [Validators.required, Validators.minLength(1)]],
     prize_label: ['', [Validators.required, Validators.minLength(1)]],
@@ -109,9 +162,35 @@ export class WinnersComponent implements OnInit {
     display_name: [''],
   });
 
+  manualForm = this.fb.nonNullable.group({
+    raffle_title: ['', [Validators.required, Validators.minLength(1)]],
+    prize_label: ['', [Validators.required, Validators.minLength(1)]],
+    display_name: ['', [Validators.required, Validators.minLength(1)]],
+    ticket_number: [''],
+    notify_email: ['', [Validators.email]],
+  });
+
+  manualEditForm = this.fb.nonNullable.group({
+    raffle_title: ['', [Validators.required, Validators.minLength(1)]],
+    prize_label: ['', [Validators.required, Validators.minLength(1)]],
+    display_name: ['', [Validators.required, Validators.minLength(1)]],
+    ticket_number: [''],
+    notify_email: ['', [Validators.email]],
+  });
+
   readonly pageNumbers = computed(() => {
     const current = this.currentPage();
     const last = this.lastPage();
+    const start = Math.max(1, current - 2);
+    const end = Math.min(last, current + 2);
+    const pages: number[] = [];
+    for (let i = start; i <= end; i += 1) pages.push(i);
+    return pages;
+  });
+
+  readonly manualPageNumbers = computed(() => {
+    const current = this.manualCurrentPage();
+    const last = this.manualLastPage();
     const start = Math.max(1, current - 2);
     const end = Math.min(last, current + 2);
     const pages: number[] = [];
@@ -124,7 +203,11 @@ export class WinnersComponent implements OnInit {
     if (!w) return '';
     const num = this.getTicketNumber(w);
     const name = w.display_name?.trim() || 'sin nombre';
-    return `¿Eliminar el ganador publicado (boleto ${num}, ${name})? Esta acción no se puede deshacer.`;
+    const raffle = this.displayRaffleTitle(w);
+    if (this.deleteIsManual()) {
+      return `¿Eliminar el ganador manual (${raffle}, boleto ${num}, ${name})? Esta acción no se puede deshacer.`;
+    }
+    return `¿Eliminar el ganador publicado (${raffle}, boleto ${num}, ${name})? Esta acción no se puede deshacer.`;
   });
 
   ngOnInit(): void {
@@ -176,14 +259,29 @@ export class WinnersComponent implements OnInit {
     return t && t.length > 0 ? t : `Rifa #${r.id}`;
   }
 
-  onRaffleSelectedFromSelect(event: Event): void {
+  /** Valor del &lt;select&gt;: vacío, "manual" o id de rifa. */
+  pickerValue(): string {
+    if (this.manualWinnersViewSelected()) return 'manual';
+    const r = this.selectedRaffle();
+    return r ? String(r.id) : '';
+  }
+
+  onPickerChange(event: Event): void {
     const target = event.target as HTMLSelectElement | null;
     if (!target) return;
     const raw = target.value;
     if (raw === '' || raw === undefined) {
+      this.manualWinnersViewSelected.set(false);
       this.onRaffleSelected(null);
       return;
     }
+    if (raw === 'manual') {
+      this.manualWinnersViewSelected.set(true);
+      this.onRaffleSelected(null);
+      this.loadManualWinners(1);
+      return;
+    }
+    this.manualWinnersViewSelected.set(false);
     const id = Number(raw);
     this.onRaffleSelected(Number.isFinite(id) ? id : null);
   }
@@ -240,6 +338,150 @@ export class WinnersComponent implements OnInit {
     this.goToPage(this.currentPage() + 1);
   }
 
+  loadManualWinners(page: number = this.manualCurrentPage()): void {
+    this.manualListLoading.set(true);
+    this.manualListError.set(null);
+    this.winnersService
+      .listManualWinners(page, this.manualPerPage())
+      .pipe(finalize(() => this.manualListLoading.set(false)))
+      .subscribe({
+        next: (res) => {
+          this.manualWinners.set(res.data ?? []);
+          this.manualCurrentPage.set(res.current_page ?? page);
+          this.manualLastPage.set(res.last_page ?? 1);
+          this.manualPerPage.set(res.per_page ?? 25);
+          this.manualFromItem.set(res.from ?? 0);
+          this.manualToItem.set(res.to ?? 0);
+          this.manualTotal.set(res.total ?? 0);
+        },
+        error: (err) => {
+          const message =
+            err?.error?.message ||
+            err?.error?.detail ||
+            'No fue posible cargar los ganadores manuales.';
+          this.manualListError.set(String(message));
+        },
+      });
+  }
+
+  goToManualPage(page: number): void {
+    if (page < 1 || page > this.manualLastPage() || page === this.manualCurrentPage()) return;
+    this.loadManualWinners(page);
+  }
+
+  goPrevManualPage(): void {
+    this.goToManualPage(this.manualCurrentPage() - 1);
+  }
+
+  goNextManualPage(): void {
+    this.goToManualPage(this.manualCurrentPage() + 1);
+  }
+
+  /** Título de rifa para filas del listado manual (sin depender de rifa seleccionada). */
+  manualListRaffleTitle(w: RaffleWinner): string {
+    const d = w.display_raffle_title ?? w.custom_raffle_title;
+    if (typeof d === 'string' && d.trim()) return d.trim();
+    return '—';
+  }
+
+  manualNotifyEmailCell(w: RaffleWinner): string {
+    const e = w.notify_email;
+    if (typeof e === 'string' && e.trim()) return e.trim();
+    return '—';
+  }
+
+  openManualViewModal(w: RaffleWinner): void {
+    this.manualViewWinner.set(w);
+    this.manualViewOpen.set(true);
+  }
+
+  closeManualViewModal(): void {
+    this.manualViewOpen.set(false);
+    this.manualViewWinner.set(null);
+  }
+
+  openManualEditModal(w: RaffleWinner): void {
+    this.manualEditModalError.set(null);
+    this.manualEditPhotoFile.set(null);
+    this.manualEditWinnerId.set(w.id);
+    const numRaw = w.display_ticket_number ?? w.custom_ticket_number;
+    const ticket = typeof numRaw === 'string' && numRaw.trim() ? numRaw.trim() : '';
+    const email =
+      typeof w.notify_email === 'string' && w.notify_email.trim() ? w.notify_email.trim() : '';
+    const raffleTitle = this.manualListRaffleTitle(w);
+    this.manualEditForm.reset({
+      raffle_title: raffleTitle === '—' ? '' : raffleTitle,
+      prize_label: w.prize_label ?? '',
+      display_name: w.display_name ?? '',
+      ticket_number: ticket,
+      notify_email: email,
+    });
+    this.manualEditModalOpen.set(true);
+  }
+
+  closeManualEditModal(): void {
+    if (this.manualEditSubmitting()) return;
+    this.manualEditModalOpen.set(false);
+    this.manualEditWinnerId.set(null);
+  }
+
+  onManualEditPhotoChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.manualEditPhotoFile.set(input.files?.[0] ?? null);
+  }
+
+  submitManualEdit(): void {
+    const id = this.manualEditWinnerId();
+    if (id === null || this.manualEditForm.invalid) {
+      this.manualEditForm.markAllAsTouched();
+      return;
+    }
+    const v = this.manualEditForm.getRawValue();
+    const email = v.notify_email?.trim() ?? '';
+    if (email) {
+      const ctrl = this.fb.control(email, [Validators.email]);
+      if (ctrl.invalid) {
+        this.manualEditModalError.set('Introduce un correo válido o déjalo vacío.');
+        return;
+      }
+    }
+    this.manualEditSubmitting.set(true);
+    this.manualEditModalError.set(null);
+    this.winnersService
+      .updateManualWinner(id, {
+        raffle_title: v.raffle_title,
+        prize_label: v.prize_label,
+        display_name: v.display_name,
+        ticket_number: v.ticket_number?.trim() || '',
+        notify_email: email,
+        photo: this.manualEditPhotoFile() ?? undefined,
+      })
+      .pipe(finalize(() => this.manualEditSubmitting.set(false)))
+      .subscribe({
+        next: () => {
+          this.toast.success('Ganador manual actualizado.');
+          this.manualEditModalOpen.set(false);
+          this.manualEditWinnerId.set(null);
+          if (this.manualWinnersViewSelected()) {
+            this.loadManualWinners(this.manualCurrentPage());
+          }
+        },
+        error: (err) => {
+          const msg =
+            err?.error?.message ||
+            (typeof err?.error === 'string' ? err.error : null) ||
+            'No fue posible actualizar el ganador manual.';
+          this.manualEditModalError.set(String(msg));
+        },
+      });
+  }
+
+  requestDeleteManualWinner(w: RaffleWinner): void {
+    this.deleteIsManual.set(true);
+    this.deleteTarget.set(w);
+    this.deleteConfirmOpen.set(true);
+  }
+
   photoRequiredSingle(): boolean {
     const r = this.selectedRaffle();
     return (r?.winners_count ?? 1) > 1;
@@ -258,16 +500,31 @@ export class WinnersComponent implements OnInit {
     return (r.winners_count ?? 1) > 1 && !w.portrait_image_id;
   }
 
+  /** Título de rifa para tabla (manual usa display/custom; por rifa elige la seleccionada). */
+  displayRaffleTitle(w: RaffleWinner): string {
+    const d = w.display_raffle_title ?? w.custom_raffle_title;
+    if (typeof d === 'string' && d.trim()) return d.trim();
+    const sr = this.selectedRaffle();
+    return sr ? this.raffleOptionLabel(sr) : '—';
+  }
+
+  isManualWinner(w: RaffleWinner): boolean {
+    return w.raffle_id == null;
+  }
+
   getTicketNumber(w: RaffleWinner): string {
+    const displayNum = w.display_ticket_number ?? w.custom_ticket_number;
+    if (typeof displayNum === 'string' && displayNum.trim()) return displayNum.trim();
     const t = w.ticket;
     if (t && typeof t === 'object') {
       const n = (t as Record<string, unknown>)['number'];
       if (typeof n === 'string' || typeof n === 'number') return String(n);
     }
-    return '-';
+    return '—';
   }
 
   requestDeleteWinner(w: RaffleWinner): void {
+    this.deleteIsManual.set(false);
     this.deleteTarget.set(w);
     this.deleteConfirmOpen.set(true);
   }
@@ -276,12 +533,45 @@ export class WinnersComponent implements OnInit {
     if (this.deletingWinnerId() !== null) return;
     this.deleteConfirmOpen.set(false);
     this.deleteTarget.set(null);
+    this.deleteIsManual.set(false);
   }
 
   confirmDeleteWinner(): void {
-    const raffle = this.selectedRaffle();
     const target = this.deleteTarget();
-    if (!raffle || !target || this.deletingWinnerId() !== null) return;
+    if (!target || this.deletingWinnerId() !== null) return;
+
+    if (this.deleteIsManual()) {
+      const page = this.manualCurrentPage();
+      const wasOnlyOnPage = this.manualWinners().length === 1;
+      this.deletingWinnerId.set(target.id);
+      this.winnersService
+        .deleteManualWinner(target.id)
+        .pipe(finalize(() => this.deletingWinnerId.set(null)))
+        .subscribe({
+          next: () => {
+            this.deleteConfirmOpen.set(false);
+            this.deleteTarget.set(null);
+            this.deleteIsManual.set(false);
+            this.toast.success('Ganador manual eliminado.');
+            if (wasOnlyOnPage && page > 1) {
+              this.loadManualWinners(page - 1);
+            } else {
+              this.loadManualWinners(page);
+            }
+          },
+          error: (err) => {
+            const msg =
+              err?.error?.message ||
+              err?.error?.detail ||
+              'No fue posible eliminar el ganador manual.';
+            this.toast.error(String(msg));
+          },
+        });
+      return;
+    }
+
+    const raffle = this.selectedRaffle();
+    if (!raffle) return;
 
     const page = this.currentPage();
     const wasOnlyOnPage = this.winners().length === 1;
@@ -294,6 +584,7 @@ export class WinnersComponent implements OnInit {
         next: () => {
           this.deleteConfirmOpen.set(false);
           this.deleteTarget.set(null);
+          this.deleteIsManual.set(false);
           this.toast.success('Ganador eliminado.');
           if (wasOnlyOnPage && page > 1) {
             this.loadWinners(page - 1);
@@ -620,6 +911,195 @@ export class WinnersComponent implements OnInit {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0] ?? null;
     this.updateBulkRow(index, 'photo', file);
+  }
+
+  openManualModal(): void {
+    this.manualModalError.set(null);
+    this.manualPhotoFile.set(null);
+    this.manualForm.reset({
+      raffle_title: '',
+      prize_label: '',
+      display_name: '',
+      ticket_number: '',
+      notify_email: '',
+    });
+    this.manualModalOpen.set(true);
+  }
+
+  closeManualModal(): void {
+    if (this.manualSubmitting()) return;
+    this.manualModalOpen.set(false);
+  }
+
+  onManualPhotoChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    this.manualPhotoFile.set(file);
+  }
+
+  openManualBulkModal(): void {
+    this.manualBulkModalError.set(null);
+    this.manualBulkRows.set([
+      {
+        raffle_title: '',
+        prize_label: '',
+        display_name: '',
+        ticket_number: '',
+        notify_email: '',
+        photo: null,
+      },
+    ]);
+    this.manualBulkModalOpen.set(true);
+  }
+
+  closeManualBulkModal(): void {
+    if (this.manualBulkSubmitting()) return;
+    this.manualBulkModalOpen.set(false);
+  }
+
+  addManualBulkRow(): void {
+    this.manualBulkRows.update((rows) => [
+      ...rows,
+      {
+        raffle_title: '',
+        prize_label: '',
+        display_name: '',
+        ticket_number: '',
+        notify_email: '',
+        photo: null,
+      },
+    ]);
+  }
+
+  removeManualBulkRow(index: number): void {
+    this.manualBulkRows.update((rows) => {
+      if (rows.length <= 1) return rows;
+      return rows.filter((_, i) => i !== index);
+    });
+  }
+
+  updateManualBulkRow<K extends keyof ManualBulkRow>(index: number, key: K, value: ManualBulkRow[K]): void {
+    this.manualBulkRows.update((rows) =>
+      rows.map((row, i) => (i === index ? { ...row, [key]: value } : row)),
+    );
+  }
+
+  onManualBulkFieldInput(
+    index: number,
+    key: 'raffle_title' | 'prize_label' | 'display_name' | 'ticket_number' | 'notify_email',
+    event: Event,
+  ): void {
+    const target = event.target as HTMLInputElement | null;
+    if (!target) return;
+    this.updateManualBulkRow(index, key, target.value);
+  }
+
+  onManualBulkPhotoChange(index: number, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    this.updateManualBulkRow(index, 'photo', file);
+  }
+
+  submitManualBulk(): void {
+    const rows = this.manualBulkRows();
+    const payload: ManualBulkWinnerRow[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const title = row.raffle_title.trim();
+      const prize = row.prize_label.trim();
+      const name = row.display_name.trim();
+      if (!title || !prize || !name) {
+        this.manualBulkModalError.set(
+          `Fila ${i + 1}: título de rifa, premio y nombre a mostrar son obligatorios.`,
+        );
+        return;
+      }
+      const email = row.notify_email.trim();
+      if (email) {
+        const ctrl = this.fb.control(email, [Validators.email]);
+        if (ctrl.invalid) {
+          this.manualBulkModalError.set(`Fila ${i + 1}: correo no válido o déjalo vacío.`);
+          return;
+        }
+      }
+      payload.push({
+        raffle_title: title,
+        prize_label: prize,
+        display_name: name,
+        ticket_number: row.ticket_number.trim() || undefined,
+        notify_email: email || undefined,
+        photo: row.photo ?? undefined,
+      });
+    }
+
+    this.manualBulkSubmitting.set(true);
+    this.manualBulkModalError.set(null);
+    this.winnersService
+      .bulkCreateManualWinners(payload)
+      .pipe(finalize(() => this.manualBulkSubmitting.set(false)))
+      .subscribe({
+        next: (res) => {
+          const n = res.winners?.length ?? payload.length;
+          this.toast.success(
+            n === 1 ? 'Ganador manual publicado.' : `${n} ganadores manuales publicados.`,
+          );
+          this.manualBulkModalOpen.set(false);
+          if (this.manualWinnersViewSelected()) {
+            this.manualCurrentPage.set(1);
+            this.loadManualWinners(1);
+          }
+          if (this.selectedRaffle()) {
+            this.loadWinners(this.currentPage());
+          }
+        },
+        error: (err) => {
+          const msg =
+            err?.error?.message ||
+            (typeof err?.error === 'string' ? err.error : null) ||
+            'No fue posible publicar los ganadores manuales.';
+          this.manualBulkModalError.set(String(msg));
+        },
+      });
+  }
+
+  submitManual(): void {
+    if (this.manualForm.invalid) {
+      this.manualForm.markAllAsTouched();
+      return;
+    }
+    this.manualSubmitting.set(true);
+    this.manualModalError.set(null);
+    const v = this.manualForm.getRawValue();
+    this.winnersService
+      .createManualWinner({
+        raffle_title: v.raffle_title,
+        prize_label: v.prize_label,
+        display_name: v.display_name,
+        ticket_number: v.ticket_number?.trim() || undefined,
+        notify_email: v.notify_email?.trim() || undefined,
+        photo: this.manualPhotoFile() ?? undefined,
+      })
+      .pipe(finalize(() => this.manualSubmitting.set(false)))
+      .subscribe({
+        next: () => {
+          this.toast.success('Ganador manual publicado.');
+          this.manualModalOpen.set(false);
+          if (this.manualWinnersViewSelected()) {
+            this.loadManualWinners(this.manualCurrentPage());
+          }
+          if (this.selectedRaffle()) {
+            this.loadWinners(this.currentPage());
+          }
+        },
+        error: (err) => {
+          const msg =
+            err?.error?.message ||
+            (typeof err?.error === 'string' ? err.error : null) ||
+            'No fue posible publicar el ganador manual.';
+          this.manualModalError.set(String(msg));
+        },
+      });
   }
 
   submitBulk(): void {

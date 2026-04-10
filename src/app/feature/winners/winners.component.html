@@ -1,9 +1,18 @@
 <div class="page-head">
   <div>
     <h1>Ganadores</h1>
-    <p>Publicar y gestionar ganadores publicados por rifa</p>
+    <p>
+      En el menú de abajo elige una rifa para trabajar sus ganadores, o la opción
+      <strong>Ganadores manuales</strong> para ver y administrar los que no van ligados a una rifa del catálogo.
+    </p>
   </div>
   <div class="head-actions">
+    <button type="button" class="btn btn-ghost" (click)="openManualModal()" [disabled]="rafflesLoading()">
+      Ganador manual
+    </button>
+    <button type="button" class="btn btn-ghost" (click)="openManualBulkModal()" [disabled]="rafflesLoading()">
+      Varios manuales
+    </button>
     <button
       type="button"
       class="btn btn-primary"
@@ -27,16 +36,17 @@
   <div class="list-error" role="alert">{{ rafflesError() }}</div>
 }
 
-<section class="panel raffle-picker" aria-label="Seleccionar rifa">
+<section class="panel raffle-picker" aria-label="Elegir listado de ganadores">
   <label class="picker-label">
-    Rifa
+    Mostrar
     <select
       class="raffle-select"
-      [value]="selectedRaffle()?.id ?? ''"
-      (change)="onRaffleSelectedFromSelect($event)"
+      [value]="pickerValue()"
+      (change)="onPickerChange($event)"
       [disabled]="rafflesLoading()"
     >
-      <option value="">Seleccionar rifa</option>
+      <option value="">Elige una opción</option>
+      <option value="manual">Ganadores manuales</option>
       @for (r of raffles(); track r.id) {
         <option [value]="r.id">{{ raffleOptionLabel(r) }}</option>
       }
@@ -50,9 +60,160 @@
   }
 </section>
 
-@if (!selectedRaffle()) {
-  <p class="empty-hint">Elige una rifa para ver o publicar ganadores.</p>
-} @else {
+@if (manualWinnersViewSelected()) {
+<section class="panel manual-list-panel" aria-label="Ganadores manuales">
+  <h2 class="section-title">Ganadores manuales</h2>
+  <p class="section-desc">
+    Son premios que mostraste al público sin vincularlos a una rifa de la lista. Puedes dar de alta más con
+    <strong>Ganador manual</strong> o <strong>Varios manuales</strong> arriba. Aquí consultas el detalle, actualizas
+    datos o eliminas un registro.
+  </p>
+  @if (manualListError()) {
+    <div class="list-error" role="alert">{{ manualListError() }}</div>
+  }
+  <div class="toolbar">
+    <div class="total">
+      Total: {{ manualTotal() }}
+      <span class="range"> | Mostrando {{ manualFromItem() }}-{{ manualToItem() }} de {{ manualTotal() }}</span>
+    </div>
+    <div class="toolbar-actions">
+      <button
+        type="button"
+        class="btn btn-ghost refresh"
+        (click)="loadManualWinners()"
+        [disabled]="manualListLoading()"
+      >
+        @if (manualListLoading()) {
+          <app-spinner [size]="16" [stroke]="3" label="Cargando" />
+          Cargando…
+        } @else {
+          Recargar
+        }
+      </button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Rifa (texto)</th>
+          <th>Boleto</th>
+          <th>Nombre</th>
+          <th>Premio</th>
+          <th>Correo</th>
+          <th>Foto</th>
+          <th>Creado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (!manualListLoading() && manualWinners().length === 0) {
+          <tr>
+            <td colspan="9" class="empty">No hay ganadores manuales publicados.</td>
+          </tr>
+        } @else {
+          @for (mw of manualWinners(); track mw.id) {
+            <tr>
+              <td>{{ mw.id }}</td>
+              <td>{{ manualListRaffleTitle(mw) }}</td>
+              <td>{{ getTicketNumber(mw) }}</td>
+              <td>{{ mw.display_name || '—' }}</td>
+              <td>{{ mw.prize_label }}</td>
+              <td class="nowrap">{{ manualNotifyEmailCell(mw) }}</td>
+              <td>
+                @if (mw.portrait_image?.url) {
+                  <img
+                    class="thumb"
+                    [src]="mw.portrait_image!.url"
+                    [alt]="'Retrato ganador ' + mw.id"
+                    width="40"
+                    height="40"
+                  />
+                } @else {
+                  <span class="muted">—</span>
+                }
+              </td>
+              <td class="nowrap">{{ mw.created_at | formatDateTime }}</td>
+              <td>
+                <div class="row-actions">
+                  <button
+                    type="button"
+                    class="action-icon action-icon--view"
+                    (click)="openManualViewModal(mw)"
+                    aria-label="Ver detalle"
+                    title="Ver"
+                  >
+                    <mat-icon aria-hidden="true">visibility</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="action-icon action-icon--edit"
+                    (click)="openManualEditModal(mw)"
+                    aria-label="Editar ganador manual"
+                    title="Editar"
+                  >
+                    <mat-icon aria-hidden="true">edit</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="action-icon action-icon--delete"
+                    (click)="requestDeleteManualWinner(mw)"
+                    [disabled]="deletingWinnerId() === mw.id"
+                    aria-label="Eliminar ganador manual"
+                    title="Eliminar"
+                  >
+                    @if (deletingWinnerId() === mw.id) {
+                      <mat-icon aria-hidden="true" class="action-icon-spin">autorenew</mat-icon>
+                    } @else {
+                      <mat-icon aria-hidden="true">delete</mat-icon>
+                    }
+                  </button>
+                </div>
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+  @if (manualLastPage() > 1) {
+    <div class="pagination">
+      <button
+        type="button"
+        class="btn-inline"
+        (click)="goPrevManualPage()"
+        [disabled]="manualListLoading() || manualCurrentPage() <= 1"
+      >
+        Anterior
+      </button>
+      @for (page of manualPageNumbers(); track page) {
+        <button
+          type="button"
+          class="btn-inline"
+          [class.active-page]="page === manualCurrentPage()"
+          (click)="goToManualPage(page)"
+          [disabled]="manualListLoading()"
+        >
+          {{ page }}
+        </button>
+      }
+      <button
+        type="button"
+        class="btn-inline"
+        (click)="goNextManualPage()"
+        [disabled]="manualListLoading() || manualCurrentPage() >= manualLastPage()"
+      >
+        Siguiente
+      </button>
+    </div>
+  }
+</section>
+}
+
+@if (!selectedRaffle() && !manualWinnersViewSelected()) {
+  <p class="empty-hint">Selecciona una rifa o <strong>Ganadores manuales</strong> en el menú para ver el listado correspondiente.</p>
+} @else if (selectedRaffle()) {
   @if (listError()) {
     <div class="list-error" role="alert">{{ listError() }}</div>
   }
@@ -80,6 +241,7 @@
         <thead>
           <tr>
             <th>ID</th>
+            <th>Rifa</th>
             <th>Boleto</th>
             <th>Nombre</th>
             <th>Premio</th>
@@ -91,12 +253,20 @@
         <tbody>
           @if (!listLoading() && winners().length === 0) {
             <tr>
-              <td colspan="7" class="empty">Aún no hay ganadores publicados para esta rifa.</td>
+              <td colspan="8" class="empty">Aún no hay ganadores publicados para esta rifa.</td>
             </tr>
           } @else {
             @for (w of winners(); track w.id) {
               <tr>
                 <td>{{ w.id }}</td>
+                <td>
+                  <div class="raffle-cell">
+                    {{ displayRaffleTitle(w) }}
+                    @if (isManualWinner(w)) {
+                      <span class="badge-manual" title="Ganador manual (sin rifa vinculada)">Manual</span>
+                    }
+                  </div>
+                </td>
                 <td>{{ getTicketNumber(w) }}</td>
                 <td>{{ w.display_name || '—' }}</td>
                 <td>{{ w.prize_label }}</td>
@@ -116,29 +286,33 @@
                 <td>{{ w.drawn_at | formatDateTime }}</td>
                 <td>
                   <div class="row-actions">
-                    <button
-                      type="button"
-                      class="action-icon action-icon--edit"
-                      (click)="openEditModal(w)"
-                      aria-label="Editar ganador"
-                      title="Editar"
-                    >
-                      <mat-icon aria-hidden="true">edit</mat-icon>
-                    </button>
-                    <button
-                      type="button"
-                      class="action-icon action-icon--delete"
-                      (click)="requestDeleteWinner(w)"
-                      [disabled]="deletingWinnerId() === w.id"
-                      aria-label="Eliminar ganador"
-                      title="Eliminar"
-                    >
-                      @if (deletingWinnerId() === w.id) {
-                        <mat-icon aria-hidden="true" class="action-icon-spin">autorenew</mat-icon>
-                      } @else {
-                        <mat-icon aria-hidden="true">delete</mat-icon>
-                      }
-                    </button>
+                    @if (!isManualWinner(w)) {
+                      <button
+                        type="button"
+                        class="action-icon action-icon--edit"
+                        (click)="openEditModal(w)"
+                        aria-label="Editar ganador"
+                        title="Editar"
+                      >
+                        <mat-icon aria-hidden="true">edit</mat-icon>
+                      </button>
+                      <button
+                        type="button"
+                        class="action-icon action-icon--delete"
+                        (click)="requestDeleteWinner(w)"
+                        [disabled]="deletingWinnerId() === w.id"
+                        aria-label="Eliminar ganador"
+                        title="Eliminar"
+                      >
+                        @if (deletingWinnerId() === w.id) {
+                          <mat-icon aria-hidden="true" class="action-icon-spin">autorenew</mat-icon>
+                        } @else {
+                          <mat-icon aria-hidden="true">delete</mat-icon>
+                        }
+                      </button>
+                    } @else {
+                      <span class="muted table-actions-placeholder">—</span>
+                    }
                   </div>
                 </td>
               </tr>
@@ -177,6 +351,275 @@
       </div>
     }
   </section>
+}
+
+@if (manualModalOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeManualModal()">
+    <div class="modal modal--wide" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-h">Publicar ganador manual</div>
+      <div class="modal-b">
+        <p class="hint">
+          Sin rifa en el sistema. Obligatorios: título de rifa (texto público), premio y nombre a mostrar. El número de
+          boleto es solo informativo en pantalla y correos.
+        </p>
+        @if (manualModalError()) {
+          <div class="list-error">{{ manualModalError() }}</div>
+        }
+
+        <form [formGroup]="manualForm" (ngSubmit)="submitManual()">
+          <div class="form-grid">
+            <label class="full">
+              Título de la rifa *
+              <input type="text" formControlName="raffle_title" autocomplete="off" placeholder="Ej. Rifa especial marzo" />
+            </label>
+            <label class="full">
+              Premio *
+              <input type="text" formControlName="prize_label" autocomplete="off" />
+            </label>
+            <label class="full">
+              Nombre a mostrar *
+              <input type="text" formControlName="display_name" autocomplete="off" />
+            </label>
+            <label class="full">
+              Número de boleto (opcional, solo texto)
+              <input type="text" formControlName="ticket_number" autocomplete="off" placeholder="Ej. 0042" />
+            </label>
+            <label class="full">
+              Correo para notificar (opcional)
+              <input type="email" formControlName="notify_email" autocomplete="off" />
+            </label>
+            @if (manualForm.controls.notify_email.invalid && manualForm.controls.notify_email.touched) {
+              <div class="lookup-err full">Introduce un correo válido o déjalo vacío.</div>
+            }
+            <label class="full">
+              Foto (opcional)
+              <input type="file" accept="image/*" (change)="onManualPhotoChange($event)" />
+            </label>
+            @if (manualPhotoFile(); as mf) {
+              <p class="file-name full">{{ mf.name }}</p>
+            }
+          </div>
+
+          <div class="modal-f">
+            <button type="button" class="btn btn-ghost" (click)="closeManualModal()">Cancelar</button>
+            <button type="submit" class="btn btn-primary" [disabled]="manualForm.invalid || manualSubmitting()">
+              Publicar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+@if (manualModalOpen() && manualSubmitting()) {
+  <div class="fullscreen-save-overlay" role="alertdialog" aria-modal="true" aria-busy="true" aria-label="Publicando">
+    <div class="fullscreen-save-overlay__backdrop"></div>
+    <div class="fullscreen-save-overlay__panel">
+      <app-spinner [size]="40" [stroke]="3" label="Publicando" />
+      <p class="fullscreen-save-overlay__text">Publicando ganador manual…</p>
+    </div>
+  </div>
+}
+
+@if (manualBulkModalOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeManualBulkModal()">
+    <div class="modal modal--wide" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-h">Publicar varios ganadores manuales</div>
+      <div class="modal-b">
+        <p class="hint">
+          Cada fila es como un ganador manual por separado. Si ninguna lleva foto, el envío va solo con datos; si alguna
+          incluye imagen, el sistema envía todo en un solo lote con archivos. En el servidor se guarda en una sola
+          operación.
+        </p>
+        @if (manualBulkModalError()) {
+          <div class="list-error">{{ manualBulkModalError() }}</div>
+        }
+
+        <div class="bulk-toolbar">
+          <button type="button" class="btn btn-ghost btn-sm" (click)="addManualBulkRow()">+ Fila</button>
+        </div>
+
+        <div class="bulk-rows">
+          @for (row of manualBulkRows(); track $index) {
+            <div class="bulk-row">
+              <div class="bulk-row-head">
+                <span>Ganador manual {{ $index + 1 }}</span>
+                @if (manualBulkRows().length > 1) {
+                  <button type="button" class="btn-inline danger" (click)="removeManualBulkRow($index)">Quitar</button>
+                }
+              </div>
+              <div class="form-grid tight">
+                <label class="full">
+                  Título de la rifa *
+                  <input
+                    type="text"
+                    [value]="row.raffle_title"
+                    (input)="onManualBulkFieldInput($index, 'raffle_title', $event)"
+                    autocomplete="off"
+                  />
+                </label>
+                <label>
+                  Premio *
+                  <input
+                    type="text"
+                    [value]="row.prize_label"
+                    (input)="onManualBulkFieldInput($index, 'prize_label', $event)"
+                    autocomplete="off"
+                  />
+                </label>
+                <label class="full">
+                  Nombre a mostrar *
+                  <input
+                    type="text"
+                    [value]="row.display_name"
+                    (input)="onManualBulkFieldInput($index, 'display_name', $event)"
+                    autocomplete="off"
+                  />
+                </label>
+                <label>
+                  Número boleto (opc.)
+                  <input
+                    type="text"
+                    [value]="row.ticket_number"
+                    (input)="onManualBulkFieldInput($index, 'ticket_number', $event)"
+                    autocomplete="off"
+                  />
+                </label>
+                <label class="full">
+                  Correo notificar (opc.)
+                  <input
+                    type="email"
+                    [value]="row.notify_email"
+                    (input)="onManualBulkFieldInput($index, 'notify_email', $event)"
+                    autocomplete="off"
+                  />
+                </label>
+                <label class="full">
+                  Foto (opc.)
+                  <input type="file" accept="image/*" (change)="onManualBulkPhotoChange($index, $event)" />
+                </label>
+                @if (row.photo; as pf) {
+                  <p class="file-name full">{{ pf.name }}</p>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="modal-f">
+          <button type="button" class="btn btn-ghost" (click)="closeManualBulkModal()">Cancelar</button>
+          <button type="button" class="btn btn-primary" (click)="submitManualBulk()" [disabled]="manualBulkSubmitting()">
+            Publicar todos
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+@if (manualBulkModalOpen() && manualBulkSubmitting()) {
+  <div class="fullscreen-save-overlay" role="alertdialog" aria-modal="true" aria-busy="true" aria-label="Publicando">
+    <div class="fullscreen-save-overlay__backdrop"></div>
+    <div class="fullscreen-save-overlay__panel">
+      <app-spinner [size]="40" [stroke]="3" label="Publicando" />
+      <p class="fullscreen-save-overlay__text">Publicando ganadores manuales…</p>
+    </div>
+  </div>
+}
+
+@if (manualViewOpen() && manualViewWinner(); as vw) {
+  <div class="modal-backdrop" role="presentation" (click)="closeManualViewModal()">
+    <div class="modal modal--wide" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-h">Ver ganador manual</div>
+      <div class="modal-b">
+        <div class="detail-readonly-grid">
+          <span class="detail-k">ID</span><span class="detail-v">{{ vw.id }}</span>
+          <span class="detail-k">Título rifa</span><span class="detail-v">{{ manualListRaffleTitle(vw) }}</span>
+          <span class="detail-k">Premio</span><span class="detail-v">{{ vw.prize_label }}</span>
+          <span class="detail-k">Nombre a mostrar</span><span class="detail-v">{{ vw.display_name || '—' }}</span>
+          <span class="detail-k">Boleto (texto)</span><span class="detail-v">{{ getTicketNumber(vw) }}</span>
+          <span class="detail-k">Correo notificación</span><span class="detail-v">{{ manualNotifyEmailCell(vw) }}</span>
+          <span class="detail-k">Sorteo</span><span class="detail-v">{{ vw.drawn_at | formatDateTime }}</span>
+          <span class="detail-k">Creado</span><span class="detail-v">{{ vw.created_at | formatDateTime }}</span>
+          <span class="detail-k">Foto</span>
+          <span class="detail-v">
+            @if (vw.portrait_image?.url) {
+              <img class="thumb thumb--lg" [src]="vw.portrait_image!.url" [alt]="'Retrato ' + vw.id" width="80" height="80" />
+            } @else {
+              —
+            }
+          </span>
+        </div>
+      </div>
+      <div class="modal-f">
+        <button type="button" class="btn btn-primary" (click)="closeManualViewModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (manualEditModalOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeManualEditModal()">
+    <div class="modal modal--wide" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-h">Editar ganador manual</div>
+      <div class="modal-b">
+        @if (manualEditModalError()) {
+          <div class="list-error">{{ manualEditModalError() }}</div>
+        }
+        <form [formGroup]="manualEditForm" (ngSubmit)="submitManualEdit()">
+          <div class="form-grid">
+            <label class="full">
+              Título de la rifa *
+              <input type="text" formControlName="raffle_title" autocomplete="off" />
+            </label>
+            <label class="full">
+              Premio *
+              <input type="text" formControlName="prize_label" autocomplete="off" />
+            </label>
+            <label class="full">
+              Nombre a mostrar *
+              <input type="text" formControlName="display_name" autocomplete="off" />
+            </label>
+            <label class="full">
+              Número de boleto (opcional)
+              <input type="text" formControlName="ticket_number" autocomplete="off" />
+            </label>
+            <label class="full">
+              Correo para notificar (opcional)
+              <input type="email" formControlName="notify_email" autocomplete="off" />
+            </label>
+            @if (manualEditForm.controls.notify_email.invalid && manualEditForm.controls.notify_email.touched) {
+              <div class="lookup-err full">Introduce un correo válido o déjalo vacío.</div>
+            }
+            <label class="full">
+              Nueva foto (opcional)
+              <input type="file" accept="image/*" (change)="onManualEditPhotoChange($event)" />
+            </label>
+            @if (manualEditPhotoFile(); as mef) {
+              <p class="file-name full">{{ mef.name }}</p>
+            }
+          </div>
+          <div class="modal-f">
+            <button type="button" class="btn btn-ghost" (click)="closeManualEditModal()">Cancelar</button>
+            <button type="submit" class="btn btn-primary" [disabled]="manualEditForm.invalid || manualEditSubmitting()">
+              Guardar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}
+
+@if (manualEditModalOpen() && manualEditSubmitting()) {
+  <div class="fullscreen-save-overlay" role="alertdialog" aria-modal="true" aria-busy="true" aria-label="Guardando">
+    <div class="fullscreen-save-overlay__backdrop"></div>
+    <div class="fullscreen-save-overlay__panel">
+      <app-spinner [size]="40" [stroke]="3" label="Guardando" />
+      <p class="fullscreen-save-overlay__text">Guardando cambios…</p>
+    </div>
+  </div>
 }
 
 @if (addModalOpen()) {

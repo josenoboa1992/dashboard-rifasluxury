@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { finalize } from 'rxjs';
+import { finalize } from 'rxjs/operators';
 
 import { SpinnerComponent } from '../../core/ui/spinner/spinner.component';
 import { ConfirmDialogComponent } from '../../core/ui/confirm-dialog/confirm-dialog.component';
@@ -63,7 +63,7 @@ export class ParticipantsComponent {
     if (!term) return this.participants();
     return this.participants().filter((participant) => {
       const haystack =
-        `${participant.name} ${participant.email} ${participant.phone ?? ''} ${participant.cedula ?? ''}`.toLowerCase();
+        `${participant.name} ${participant.email} ${participant.phone ?? ''} ${participant.cedula ?? ''} ${this.participantValuationLabel(participant)}`.toLowerCase();
       return haystack.includes(term);
     });
   });
@@ -91,6 +91,15 @@ export class ParticipantsComponent {
     private readonly toast: ToastService,
   ) {}
 
+  /** Texto para columna Valoración (segment_label del API o segment formateado). */
+  participantValuationLabel(p: Participant): string {
+    const label = String(p.segment_label ?? p.segmentLabel ?? '').trim();
+    if (label) return label;
+    const seg = String(p.segment ?? '').trim().toLowerCase();
+    if (!seg) return '—';
+    return seg.charAt(0).toUpperCase() + seg.slice(1);
+  }
+
   ngOnInit(): void {
     this.participantForm = this.fb.group({
       name: this.fb.nonNullable.control('', [Validators.required, Validators.minLength(2)]),
@@ -109,7 +118,8 @@ export class ParticipantsComponent {
       .pipe(finalize(() => this.participantsLoading.set(false)))
       .subscribe({
         next: (res) => {
-          this.participants.set(res.data ?? []);
+          const data = res.data ?? [];
+          this.participants.set(data);
           this.currentPage.set(res.current_page ?? page);
           this.lastPage.set(res.last_page ?? 1);
           this.perPage.set(res.per_page ?? 15);

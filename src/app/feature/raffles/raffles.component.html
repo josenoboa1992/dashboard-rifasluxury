@@ -58,6 +58,7 @@
           <th>Estado</th>
           <th>Precio boleto</th>
           <th>Boletos meta</th>
+          <th>Boletos vendidos</th>
           <th>Disponibles</th>
           <th>Fecha sorteo</th>
           <th>Acciones</th>
@@ -66,7 +67,7 @@
       <tbody>
         @if (!loading() && visibleRaffles().length === 0) {
           <tr>
-            <td colspan="9" class="empty">No hay rifas para mostrar.</td>
+            <td colspan="10" class="empty">No hay rifas para mostrar.</td>
           </tr>
         } @else {
           @for (raffle of visibleRaffles(); track raffle.id) {
@@ -83,8 +84,9 @@
               <td>{{ raffleStatusLabel(raffle.status) }}</td>
               <td class="nowrap">{{ (raffle.ticket_price | formatMoney) || '—' }}</td>
               <td>{{ raffle.ticket_goal }}</td>
-              <td>{{ raffle.tickets_available_count ?? '-' }}</td>
-              <td>{{ raffle.draw_at | formatDateTime }}</td>
+              <td>{{ raffle.tickets_sold_count ?? '—' }}</td>
+              <td>{{ raffle.tickets_available_count ?? '—' }}</td>
+              <td>{{ drawAtTableCell(raffle) }}</td>
               <td>
                 <div class="row-actions">
                   <button
@@ -363,7 +365,9 @@
                   </mat-form-field>
                 </div>
               </div>
-              <small class="input-help">Debe ser igual o posterior a Inicio.</small>
+              <small class="input-help"
+                >Opcional al crear: puedes dejarla pendiente. Si la indicas, debe ser igual o posterior a Inicio.</small
+              >
               @if (isInvalid('ends_at_date') || isInvalid('ends_at_hour') || isInvalid('ends_at_minute') || isInvalid('ends_at_ampm')) {
                 <small class="field-error">{{ getErrorMessage('ends_at_date') || firstTimeError('ends_at') }}</small>
               }
@@ -380,6 +384,7 @@
                     [readonly]="true"
                     [min]="minDateForDraw"
                     [matDatepickerFilter]="drawDateFilter"
+                    (dateChange)="onDrawDateOrTimeChange()"
                   />
                   <mat-datepicker-toggle matIconSuffix [for]="pickerDraw" [disabled]="modalMode() === 'view'"></mat-datepicker-toggle>
                   <mat-datepicker #pickerDraw></mat-datepicker>
@@ -387,7 +392,11 @@
                 <div class="datetime-time-group">
                   <mat-form-field appearance="outline" class="time-hour">
                     <mat-label>Hora</mat-label>
-                    <mat-select formControlName="draw_at_hour" [compareWith]="compareNumericSelect">
+                    <mat-select
+                      formControlName="draw_at_hour"
+                      [compareWith]="compareNumericSelect"
+                      (selectionChange)="onDrawDateOrTimeChange()"
+                    >
                       @for (h of hours12; track h) {
                         <mat-option [value]="h">{{ h }}</mat-option>
                       }
@@ -395,7 +404,11 @@
                   </mat-form-field>
                   <mat-form-field appearance="outline" class="time-minute">
                     <mat-label>Min</mat-label>
-                    <mat-select formControlName="draw_at_minute" [compareWith]="compareNumericSelect">
+                    <mat-select
+                      formControlName="draw_at_minute"
+                      [compareWith]="compareNumericSelect"
+                      (selectionChange)="onDrawDateOrTimeChange()"
+                    >
                       @for (m of minutesList; track m) {
                         <mat-option [value]="m">{{ minuteLabel(m) }}</mat-option>
                       }
@@ -403,14 +416,17 @@
                   </mat-form-field>
                   <mat-form-field appearance="outline" class="time-ampm">
                     <mat-label>Periodo</mat-label>
-                    <mat-select formControlName="draw_at_ampm">
+                    <mat-select formControlName="draw_at_ampm" (selectionChange)="onDrawDateOrTimeChange()">
                       <mat-option value="am">a.m.</mat-option>
                       <mat-option value="pm">p.m.</mat-option>
                     </mat-select>
                   </mat-form-field>
                 </div>
               </div>
-              <small class="input-help">Debe ser igual o posterior a Fin.</small>
+              <small class="input-help"
+                >Opcional al crear: puedes dejarlo pendiente. Si lo indicas, debe ser coherente con Inicio y Fin (si ya hay
+                fin, no antes que Fin).</small
+              >
               @if (isInvalid('draw_at_date') || isInvalid('draw_at_hour') || isInvalid('draw_at_minute') || isInvalid('draw_at_ampm')) {
                 <small class="field-error">{{ getErrorMessage('draw_at_date') || firstTimeError('draw_at') }}</small>
               }

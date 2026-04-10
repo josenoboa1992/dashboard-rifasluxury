@@ -75,6 +75,56 @@
   font-weight: 600;
 }
 
+.section-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #04057a;
+}
+
+.section-desc {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: #5c6370;
+  line-height: 1.45;
+}
+
+.section-desc code {
+  font-size: 0.78em;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.3rem;
+  background: #f0f2f7;
+  color: #3d4450;
+}
+
+.manual-list-panel {
+  margin-bottom: 1rem;
+}
+
+.detail-readonly-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 140px) minmax(0, 1fr);
+  gap: 0.5rem 1rem;
+  align-items: start;
+  font-size: 0.9rem;
+}
+
+.detail-k {
+  font-weight: 700;
+  color: #5c6370;
+}
+
+.detail-v {
+  color: #1a1d24;
+  word-break: break-word;
+}
+
+.thumb--lg {
+  border-radius: 0.5rem;
+  object-fit: cover;
+}
+
 .empty-hint {
   color: #6a7284;
   font-weight: 600;
@@ -324,6 +374,7 @@
 }
 
 .form-grid input[type='text'],
+.form-grid input[type='email'],
 .form-grid input[type='file'] {
   width: 100%;
   border: 1px solid #d9deea;
@@ -459,6 +510,7 @@
 }
 
 :host-context(html[data-theme='dark']) .form-grid input[type='text'],
+:host-context(html[data-theme='dark']) .form-grid input[type='email'],
 :host-context(html[data-theme='dark']) .form-grid input[type='file'] {
   background: #141a22;
   border-color: #2d3848;
@@ -486,4 +538,53 @@
 
 :host-context(html[data-theme='dark']) .bulk-row-head {
   color: #b8c8f0;
+}
+
+.raffle-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+.badge-manual {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.12rem 0.4rem;
+  border-radius: 0.35rem;
+  background: rgba(4, 5, 122, 0.1);
+  color: #04057a;
+}
+
+.table-actions-placeholder {
+  padding: 0 0.25rem;
+}
+
+:host-context(html[data-theme='dark']) .badge-manual {
+  background: rgba(96, 165, 250, 0.15);
+  color: #93c5fd;
+}
+
+:host-context(html[data-theme='dark']) .section-title {
+  color: #e8eaed;
+}
+
+:host-context(html[data-theme='dark']) .section-desc {
+  color: #9aa0a6;
+}
+
+:host-context(html[data-theme='dark']) .section-desc code {
+  background: #2d3848;
+  color: #c5cad3;
+}
+
+:host-context(html[data-theme='dark']) .detail-k {
+  color: #9aa0a6;
+}
+
+:host-context(html[data-theme='dark']) .detail-v {
+  color: #e8eaed;
 }

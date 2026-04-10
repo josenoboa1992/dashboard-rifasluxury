@@ -11,10 +11,18 @@ export interface Participant {
   name: string;
   cedula: string | null;
   phone: string | null;
-  email: string;
+  email: string | null;
   email_verified_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Boletos confirmados (si el API lo incluye en el listado). */
+  tickets_confirmed_count?: number;
+  /** Código de valoración/segmentación (p. ej. bronce, oro). */
+  segment?: string | null;
+  /** Etiqueta legible (p. ej. Bronce, Oro); prioritaria en UI. */
+  segment_label?: string | null;
+  /** Variante camelCase que algunos APIs envían en el listado. */
+  segmentLabel?: string | null;
 }
 
 export interface PaginatedParticipantsResponse {
@@ -32,7 +40,7 @@ export interface ParticipantPayload {
   name: string;
   cedula: string | null;
   phone: string | null;
-  email: string;
+  email: string | null;
 }
 
 /** Respuesta de GET /api/admin/participants/client-history */
@@ -219,6 +227,100 @@ function normalizeClientHistoryResponse(res: ClientHistoryResponse): ClientHisto
   return { ...res, by_raffle };
 }
 
+function strVal(v: unknown): string | null {
+  if (v == null || v === '') return null;
+  if (typeof v === 'string') return v.trim() || null;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  return null;
+}
+
+function pickFirstString(o: Record<string, unknown>, keys: string[]): string | null {
+  for (const k of keys) {
+    const s = strVal(o[k]);
+    if (s) return s;
+  }
+  return null;
+}
+
+/**
+ * Aplana segmentación desde distintas formas de JSON (Laravel Resource, relación `segment`, JSON:API `attributes`, etc.).
+ */
+export function normalizeParticipantFromApi(raw: unknown): Participant {
+  const row = raw as Record<string, unknown>;
+  const base = { ...(raw as object) } as Participant;
+
+  let segment = strVal(base.segment);
+  let segment_label = strVal(base.segment_label) ?? strVal(base.segmentLabel);
+
+  const flatLabel = pickFirstString(row, [
+    'segment_label',
+    'segmentLabel',
+    'segment_name',
+    'segmentName',
+    'valoracion',
+    'valuacion',
+    'valuation',
+    'valuation_label',
+    'valuationLabel',
+    'tier_label',
+    'tierLabel',
+  ]);
+  const flatSeg = pickFirstString(row, ['segment', 'segment_key', 'segmentKey', 'tier', 'nivel']);
+
+  segment = segment ?? flatSeg;
+  segment_label = segment_label ?? flatLabel;
+
+  const mergeNested = (obj: unknown) => {
+    if (obj == null || typeof obj !== 'object' || Array.isArray(obj)) return;
+    const o = obj as Record<string, unknown>;
+    segment = segment ?? pickFirstString(o, ['slug', 'code', 'key', 'value', 'name', 'tier']);
+    segment_label = segment_label ?? pickFirstString(o, ['label', 'name', 'title', 'display_name', 'displayName']);
+  };
+
+  mergeNested(row['segment']);
+  mergeNested(row['segmentation']);
+  mergeNested(row['client_segment']);
+  mergeNested(row['participant_segment']);
+
+  const attrs = row['attributes'];
+  if (attrs != null && typeof attrs === 'object' && !Array.isArray(attrs)) {
+    const a = attrs as Record<string, unknown>;
+    segment = segment ?? pickFirstString(a, ['segment', 'tier', 'segment_key']);
+    segment_label =
+      segment_label ??
+      pickFirstString(a, [
+        'segment_label',
+        'segmentLabel',
+        'segment_name',
+        'valoracion',
+        'valuation',
+      ]);
+    mergeNested(a['segment']);
+    mergeNested(a['segmentation']);
+  }
+
+  const ticketsRaw = row['tickets_confirmed_count'];
+  const tickets_confirmed_count =
+    typeof ticketsRaw === 'number' && Number.isFinite(ticketsRaw)
+      ? ticketsRaw
+      : typeof ticketsRaw === 'string' && /^\d+$/.test(ticketsRaw.trim())
+        ? Number(ticketsRaw.trim())
+        : base.tickets_confirmed_count;
+
+  return {
+    ...base,
+    ...(tickets_confirmed_count !== undefined ? { tickets_confirmed_count } : {}),
+    segment: segment ?? null,
+    segment_label: segment_label ?? null,
+    segmentLabel: segment_label ?? undefined,
+  };
+}
+
+function normalizePaginatedParticipantsResponse(res: PaginatedParticipantsResponse): PaginatedParticipantsResponse {
+  const data = (res.data ?? []).map((row) => normalizeParticipantFromApi(row));
+  return { ...res, data };
+}
+
 @Injectable({ providedIn: 'root' })
 export class ParticipantsService {
   constructor(
@@ -237,10 +339,12 @@ export class ParticipantsService {
     const params = new HttpParams()
       .set('page', page)
       .set('per_page', perPage);
-    return this.http.get<PaginatedParticipantsResponse>(
-      `${environment.apiBaseUrl}/api/participants`,
-      { headers: this.authHeaders(), params },
-    );
+    return this.http
+      .get<PaginatedParticipantsResponse>(`${environment.apiBaseUrl}/api/participants`, {
+        headers: this.authHeaders(),
+        params,
+      })
+      .pipe(map(normalizePaginatedParticipantsResponse));
   }
 
   createParticipant(payload: ParticipantPayload): Observable<Participant> {
@@ -252,10 +356,11 @@ export class ParticipantsService {
   }
 
   getParticipant(participantId: number): Observable<Participant> {
-    return this.http.get<Participant>(
-      `${environment.apiBaseUrl}/api/participants/${participantId}`,
-      { headers: this.authHeaders() },
-    );
+    return this.http
+      .get<unknown>(`${environment.apiBaseUrl}/api/participants/${participantId}`, {
+        headers: this.authHeaders(),
+      })
+      .pipe(map((raw) => normalizeParticipantFromApi(raw)));
   }
 
   updateParticipant(

@@ -75,6 +75,12 @@
   overflow: auto;
 }
 
+.valoracion-cell {
+  font-weight: 600;
+  color: #2d3a4d;
+  white-space: nowrap;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -282,5 +288,9 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.85rem;
+}
+
+:host-context(html[data-theme='dark']) .valoracion-cell {
+  color: #c5cad3;
 }
 

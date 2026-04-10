@@ -12,6 +12,7 @@ import {
   RafflesService,
 } from '../../core/raffles/services/raffles.service';
 import { CategoriesService, Category } from '../../core/categories/services/categories.service';
+import { formatDateTimeDisplay } from '../../core/helpers/date-format.helper';
 import { formatMoneyDop } from '../../core/helpers/money-format.helper';
 import { raffleStatusLabelEs } from '../../core/helpers/ui-labels.es';
 import { FormatDateTimePipe } from '../../core/pipes/format-date-time.pipe';
@@ -157,14 +158,15 @@ export class RafflesComponent {
       starts_at_hour: this.fb.nonNullable.control(9, [Validators.required, Validators.min(1), Validators.max(12)]),
       starts_at_minute: this.fb.nonNullable.control(0, [Validators.required, Validators.min(0), Validators.max(59)]),
       starts_at_ampm: this.fb.nonNullable.control<'am' | 'pm'>('am', [Validators.required]),
-      ends_at_date: this.fb.control<Date | null>(null, [Validators.required]),
-      ends_at_hour: this.fb.nonNullable.control(6, [Validators.required, Validators.min(1), Validators.max(12)]),
-      ends_at_minute: this.fb.nonNullable.control(0, [Validators.required, Validators.min(0), Validators.max(59)]),
-      ends_at_ampm: this.fb.nonNullable.control<'am' | 'pm'>('pm', [Validators.required]),
-      draw_at_date: this.fb.control<Date | null>(null, [Validators.required]),
-      draw_at_hour: this.fb.nonNullable.control(8, [Validators.required, Validators.min(1), Validators.max(12)]),
-      draw_at_minute: this.fb.nonNullable.control(0, [Validators.required, Validators.min(0), Validators.max(59)]),
-      draw_at_ampm: this.fb.nonNullable.control<'am' | 'pm'>('pm', [Validators.required]),
+      /** Fin y sorteo: opcionales al crear (se pueden definir después). */
+      ends_at_date: this.fb.control<Date | null>(null),
+      ends_at_hour: this.fb.nonNullable.control(6, [Validators.min(1), Validators.max(12)]),
+      ends_at_minute: this.fb.nonNullable.control(0, [Validators.min(0), Validators.max(59)]),
+      ends_at_ampm: this.fb.nonNullable.control<'am' | 'pm'>('pm'),
+      draw_at_date: this.fb.control<Date | null>(null),
+      draw_at_hour: this.fb.nonNullable.control(8, [Validators.min(1), Validators.max(12)]),
+      draw_at_minute: this.fb.nonNullable.control(0, [Validators.min(0), Validators.max(59)]),
+      draw_at_ampm: this.fb.nonNullable.control<'am' | 'pm'>('pm'),
       show_available_tickets: this.fb.nonNullable.control(true),
     });
     this.loadCategories();
@@ -179,6 +181,14 @@ export class RafflesComponent {
   getRaffleImageUrl(raffle: Raffle): string | null {
     if (typeof raffle.banner_image === 'string' && raffle.banner_image.trim()) return raffle.banner_image;
     return null;
+  }
+
+  /** Celda de tabla cuando el API aún no tiene fecha de sorteo. */
+  drawAtTableCell(raffle: Raffle): string {
+    const raw = raffle.draw_at as string | null | undefined;
+    if (raw == null || String(raw).trim() === '') return 'Pendiente';
+    const formatted = formatDateTimeDisplay(String(raw));
+    return formatted || 'Pendiente';
   }
 
   get selectedBannerFileName(): string {
@@ -211,10 +221,11 @@ export class RafflesComponent {
     return v ? new Date(v.getFullYear(), v.getMonth(), v.getDate()) : null;
   }
 
-  /** Fecha mínima para "Sorteo" (mismo día que fin o posterior). */
+  /** Fecha mínima para "Sorteo": si hay fin, no antes que fin; si no, no antes que inicio. */
   get minDateForDraw(): Date | null {
-    const v = this.raffleForm?.controls['ends_at_date']?.value as Date | null;
-    return v ? new Date(v.getFullYear(), v.getMonth(), v.getDate()) : null;
+    const end = this.raffleForm?.controls['ends_at_date']?.value as Date | null;
+    if (end) return new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    return this.minDateForEnds;
   }
 
   endsDateFilter = (d: Date | null): boolean => {
@@ -226,7 +237,8 @@ export class RafflesComponent {
 
   drawDateFilter = (d: Date | null): boolean => {
     const min = this.minDateForDraw;
-    if (!d || !min) return true;
+    if (!d) return true;
+    if (!min) return true;
     const day = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
     return day >= min.getTime();
   };
@@ -287,8 +299,13 @@ export class RafflesComponent {
     if (which === 'ends' && endsTouched && !Number.isNaN(starts) && !Number.isNaN(ends) && ends < starts) {
       return 'La fecha de fin debe ser igual o posterior al inicio.';
     }
-    if (which === 'draw' && drawTouched && !Number.isNaN(ends) && !Number.isNaN(draw) && draw < ends) {
-      return 'La fecha de sorteo debe ser igual o posterior al fin.';
+    if (which === 'draw' && drawTouched && !Number.isNaN(draw)) {
+      if (!Number.isNaN(ends) && draw < ends) {
+        return 'La fecha de sorteo debe ser igual o posterior al fin.';
+      }
+      if (Number.isNaN(ends) && !Number.isNaN(starts) && draw < starts) {
+        return 'Si aún no hay fecha de fin, el sorteo debe ser igual o posterior al inicio.';
+      }
     }
     return '';
   }
@@ -594,6 +611,29 @@ export class RafflesComponent {
     }
   }
 
+  onDrawDateOrTimeChange(): void {
+    const tsStart = this.toTimestampFromPrefix('starts_at');
+    const tsEnd = this.toTimestampFromPrefix('ends_at');
+    const tsDraw = this.toTimestampFromPrefix('draw_at');
+    const ed = this.raffleForm.controls['ends_at_date'].value as Date | null;
+    if (ed && !Number.isNaN(tsEnd) && !Number.isNaN(tsDraw) && tsDraw < tsEnd) {
+      this.raffleForm.controls['draw_at_date'].setValue(new Date(ed.getFullYear(), ed.getMonth(), ed.getDate()));
+      this.copyTimeParts('ends_at', 'draw_at');
+      return;
+    }
+    const sd = this.raffleForm.controls['starts_at_date'].value as Date | null;
+    if (
+      sd &&
+      Number.isNaN(tsEnd) &&
+      !Number.isNaN(tsStart) &&
+      !Number.isNaN(tsDraw) &&
+      tsDraw < tsStart
+    ) {
+      this.raffleForm.controls['draw_at_date'].setValue(new Date(sd.getFullYear(), sd.getMonth(), sd.getDate()));
+      this.copyTimeParts('starts_at', 'draw_at');
+    }
+  }
+
   save(): void {
     if (this.modalMode() === 'view') {
       this.closeModal();
@@ -612,11 +652,24 @@ export class RafflesComponent {
       this.modalError.set('La fecha de fin debe ser mayor o igual que la fecha de inicio.');
       return;
     }
-    if (!Number.isNaN(tsEnd) && !Number.isNaN(tsDraw) && tsDraw < tsEnd) {
-      this.modalError.set('La fecha de sorteo debe ser mayor o igual que la fecha de fin.');
-      return;
+    if (!Number.isNaN(tsDraw)) {
+      if (!Number.isNaN(tsEnd) && tsDraw < tsEnd) {
+        this.modalError.set('La fecha de sorteo debe ser mayor o igual que la fecha de fin.');
+        return;
+      }
+      if (Number.isNaN(tsEnd) && !Number.isNaN(tsStart) && tsDraw < tsStart) {
+        this.modalError.set(
+          'Si aún no hay fecha de fin, el sorteo debe ser mayor o igual que la fecha de inicio.',
+        );
+        return;
+      }
     }
 
+    const startsAt = this.combineDateTimeToApi(value.starts_at_date as Date | null, this.getTime24('starts_at'));
+    const endsAt = this.combineDateTimeToApi(value.ends_at_date as Date | null, this.getTime24('ends_at'));
+    const drawAt = this.combineDateTimeToApi(value.draw_at_date as Date | null, this.getTime24('draw_at'));
+
+    const isCreate = this.modalMode() === 'create';
     const payload: RafflePayload = {
       category_id: Number(value.category_id),
       title: value.title,
@@ -628,16 +681,19 @@ export class RafflesComponent {
       winners_count: Number(value.winners_count),
       digit_count: Number(value.digit_count),
       status: value.status,
-      starts_at: this.combineDateTimeToApi(value.starts_at_date as Date | null, this.getTime24('starts_at')),
-      ends_at: this.combineDateTimeToApi(value.ends_at_date as Date | null, this.getTime24('ends_at')),
-      draw_at: this.combineDateTimeToApi(value.draw_at_date as Date | null, this.getTime24('draw_at')),
+      starts_at: startsAt,
       show_available_tickets: !!value.show_available_tickets,
     };
+    if (endsAt) payload.ends_at = endsAt;
+    if (drawAt) payload.draw_at = drawAt;
 
-    const isCreate = this.modalMode() === 'create';
     const request$ = isCreate
       ? this.rafflesService.createRaffleMultipart(payload, this.selectedBannerFile())
-      : this.rafflesService.updateRaffleMultipart(this.activeId() as number, payload, this.selectedBannerFile());
+      : this.rafflesService.updateRaffleMultipart(this.activeId() as number, {
+          ...payload,
+          ends_at: endsAt,
+          draw_at: drawAt,
+        }, this.selectedBannerFile());
 
     this.modalSubmitting.set(true);
     this.modalError.set(null);
