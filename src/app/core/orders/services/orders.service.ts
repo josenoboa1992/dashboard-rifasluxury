@@ -52,6 +52,8 @@ export interface Order {
   email: string;
   status: string;
   total_amount: string;
+  /** Cantidad de boletos asociados (nuevo en el endpoint). */
+  tickets_count?: number | null;
   bank_account_id: number | null;
   payment_proof_path: string | null;
   payment_proof_image_id: number | null;

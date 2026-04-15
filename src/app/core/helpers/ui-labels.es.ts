@@ -31,9 +31,9 @@ export function orderStatusLabelEs(status: string | null | undefined): string {
   if (status == null || String(status).trim() === '') return '—';
   const k = String(status).toLowerCase().trim();
   const map: Record<string, string> = {
-    pending_validation: 'Pendiente',
-    pending_payment: 'Pendiente de pago',
-    confirmed: 'Confirmado',
+    pending_validation: 'Revisando',
+    pending_payment: 'Apartado',
+    confirmed: 'Pagado',
     cancelled: 'Cancelado',
     sold: 'Vendido',
     reserved: 'Reservado',

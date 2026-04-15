@@ -1,10 +1,12 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Clipboard, ClipboardModule } from '@angular/cdk/clipboard';
+import { DecimalPipe, isPlatformBrowser } from '@angular/common';
+import { Component, computed, inject, OnInit, PLATFORM_ID, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { NavigationEnd, Router } from '@angular/router';
-import { merge, of } from 'rxjs';
-import { distinctUntilChanged, filter, finalize, map } from 'rxjs/operators';
+import { forkJoin, merge, of } from 'rxjs';
+import { catchError, distinctUntilChanged, filter, finalize, map } from 'rxjs/operators';
 
 import { environment } from '../../../environments/environment';
 import { LoginUser } from '../../core/auth/models/login-response.model';
@@ -17,9 +19,9 @@ import { FormatDateTimePipe } from '../../core/pipes/format-date-time.pipe';
 import { FormatMoneyPipe } from '../../core/pipes/format-money.pipe';
 import { DrCedulaPipe } from '../../core/pipes/dr-cedula.pipe';
 import { formatMoneyDop } from '../../core/helpers/money-format.helper';
-import { Order, OrdersService } from '../../core/orders/services/orders.service';
+import { ChartsService } from '../../core/charts/services/charts.service';
+import { Order, OrdersService, PaginatedOrdersResponse } from '../../core/orders/services/orders.service';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -30,13 +32,14 @@ import { MatInputModule } from '@angular/material/input';
   standalone: true,
   imports: [
     ReactiveFormsModule,
+    DecimalPipe,
     SpinnerComponent,
     ConfirmDialogComponent,
     FormatDateTimePipe,
     FormatMoneyPipe,
     DrCedulaPipe,
+    ClipboardModule,
     MatButtonModule,
-    MatCardModule,
     MatDividerModule,
     MatFormFieldModule,
     MatIconModule,
@@ -47,15 +50,98 @@ import { MatInputModule } from '@angular/material/input';
 })
 export class OrdersComponent implements OnInit {
   readonly loading = signal(false);
+  readonly loadingMore = signal(false);
   readonly error = signal<string | null>(null);
   readonly orders = signal<Order[]>([]);
   readonly searchTerm = signal('');
-  readonly currentPage = signal(1);
+  /** Filtro enviado al API (`''` = todos). */
+  readonly statusFilter = signal('');
+  readonly lastLoadedPage = signal(0);
   readonly lastPage = signal(1);
   readonly perPage = signal(25);
-  readonly fromItem = signal(0);
-  readonly toItem = signal(0);
   readonly total = signal(0);
+
+  /** Carga del chart global + badges de pestañas. */
+  readonly statusCountsLoading = signal(false);
+  /** Total de pedidos (todas las rifas) desde `/api/admin/charts/orders-distribution`. */
+  readonly totalOrders = signal(0);
+  /** Denominador del donut: pending + confirmed + available (sin cancelados). */
+  readonly chartDonutGrand = signal(0);
+  readonly countRevisando = signal(0);
+  readonly countPagado = signal(0);
+  readonly countCancelado = signal(0);
+  /** Cupo disponible total (suma pool restante de todas las rifas). */
+  readonly availableTickets = signal(0);
+  /** Evita “parpadeo” vacío mientras llega el primer payload del chart. */
+  readonly chartInsightsLoaded = signal(false);
+
+  readonly hasMore = computed(() => this.lastLoadedPage() < this.lastPage());
+
+  /** Pestañas de filtro: valor vacío = todos. */
+  static readonly STATUS_TABS: ReadonlyArray<{ filterValue: string; label: string }> = [
+    { filterValue: '', label: 'Todos' },
+    { filterValue: 'pending_validation', label: 'Revisando' },
+    { filterValue: 'confirmed', label: 'Pagado' },
+    { filterValue: 'cancelled', label: 'Cancelado' },
+  ] as const;
+
+  readonly statusTabs = OrdersComponent.STATUS_TABS;
+
+  readonly chartLegend = computed(() => {
+    const grand = this.chartDonutGrand();
+    if (grand <= 0) return [];
+    // Leyenda: solo pedidos (revisando/pagado). El cupo disponible se refleja en el donut,
+    // pero no en la lista para evitar solapes con porcentajes muy altos.
+    const list = [
+      { key: 'revisando', label: 'Revisando', n: this.countRevisando(), color: '#ea580c' },
+      { key: 'pagado', label: 'Pagado', n: this.countPagado(), color: '#16a34a' },
+    ];
+    return list
+      .filter((r) => r.n > 0)
+      .map((r) => ({
+        ...r,
+        pct: (r.n / grand) * 100,
+      }));
+  });
+
+  readonly chartDonutGradient = computed(() => {
+    const grand = this.chartDonutGrand();
+    if (grand <= 0) return '#e8eaef';
+    const slices: { color: string; frac: number }[] = [];
+    const add = (n: number, color: string) => {
+      if (n > 0) slices.push({ color, frac: n / grand });
+    };
+    add(this.countRevisando(), '#ea580c');
+    add(this.countPagado(), '#16a34a');
+    add(this.availableTickets(), '#94a3b8');
+    const sumFrac = slices.reduce((s, x) => s + x.frac, 0);
+    if (sumFrac < 1 - 1e-9) {
+      slices.push({ color: '#cbd5e1', frac: Math.max(0, 1 - sumFrac) });
+    }
+    let acc = 0;
+    const parts: string[] = [];
+    for (const s of slices) {
+      const start = acc * 360;
+      acc += s.frac;
+      const end = acc * 360;
+      parts.push(`${s.color} ${start}deg ${end}deg`);
+    }
+    return `conic-gradient(${parts.join(', ')})`;
+  });
+
+  readonly chartAriaLabel = computed(() => {
+    const grand = this.chartDonutGrand();
+    if (grand <= 0) return 'Sin datos de distribución';
+    const pct = (n: number) => (Math.max(0, n) / grand) * 100;
+    const revisando = this.countRevisando();
+    const pagado = this.countPagado();
+    const disponible = this.availableTickets();
+    const parts: string[] = [];
+    if (revisando > 0) parts.push(`Revisando ${Math.round(pct(revisando) * 10) / 10}%`);
+    if (pagado > 0) parts.push(`Pagado ${Math.round(pct(pagado) * 10) / 10}%`);
+    if (disponible > 0) parts.push(`Disponible ${Math.round(pct(disponible) * 10) / 10}%`);
+    return parts.length ? `Distribución: ${parts.join(', ')}` : 'Sin datos de distribución';
+  });
 
   readonly detailOpen = signal(false);
   readonly detailLoading = signal(false);
@@ -65,7 +151,7 @@ export class OrdersComponent implements OnInit {
 
   readonly rejectConfirmOpen = signal(false);
 
-  /** Pedido cancelado a eliminar (listado); si es null, se usa `orderDetail()` en el modal. */
+  /** Pedido seleccionado para eliminar (listado); si es null, se usa `orderDetail()` en el modal. */
   readonly orderPendingDelete = signal<Order | null>(null);
   readonly deleteConfirmOpen = signal(false);
   readonly deleting = signal(false);
@@ -74,10 +160,16 @@ export class OrdersComponent implements OnInit {
   readonly voucherPreviewOpen = signal(false);
   readonly voucherPreviewUrl = signal<string | null>(null);
   readonly voucherPreviewKind = signal<'image' | 'pdf' | null>(null);
+  /** Mini overlay con QR del enlace al pedido (panel admin). */
+  readonly ticketQrOpen = signal(false);
 
   private readonly fb = inject(FormBuilder);
+  private readonly clipboard = inject(Clipboard);
+  private readonly platformId = inject(PLATFORM_ID);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly auth = inject(AuthService);
+  /** Invalida respuestas de `loadNextPage` si hubo `reloadFromStart` entretanto. */
+  private listRequestGeneration = 0;
   readonly reviewNotes = this.fb.nonNullable.control('');
 
   /** Igual que en el dashboard: `role === 'admin'` o `is_admin === true`. */
@@ -93,16 +185,6 @@ export class OrdersComponent implements OnInit {
     });
   });
 
-  readonly pageNumbers = computed(() => {
-    const current = this.currentPage();
-    const last = this.lastPage();
-    const start = Math.max(1, current - 2);
-    const end = Math.min(last, current + 2);
-    const pages: number[] = [];
-    for (let i = start; i <= end; i += 1) pages.push(i);
-    return pages;
-  });
-
   readonly rejectConfirmMessage = computed(() => {
     const o = this.orderDetail();
     if (!o) return '';
@@ -113,11 +195,17 @@ export class OrdersComponent implements OnInit {
   readonly deleteConfirmMessage = computed(() => {
     const o = this.orderPendingDelete() ?? this.orderDetail();
     if (!o) return '';
-    return `¿Eliminar definitivamente el pedido #${o.id} (${o.customer_name})? Solo los pedidos cancelados pueden eliminarse. Esta acción no se puede deshacer.`;
+    const st = String(o.status ?? '').trim().toLowerCase();
+    const release =
+      st === 'confirmed' || st === 'cancelled'
+        ? ' Se liberan los boletos asociados.'
+        : '';
+    return `¿Eliminar definitivamente el pedido #${o.id} (${o.customer_name})? Solo los administradores pueden eliminar pedidos en estado cancelado o pagado.${release} Esta acción no se puede deshacer.`;
   });
 
   constructor(
     private readonly ordersService: OrdersService,
+    private readonly chartsService: ChartsService,
     private readonly toast: ToastService,
     private readonly router: Router,
   ) {
@@ -131,9 +219,9 @@ export class OrdersComponent implements OnInit {
         distinctUntilChanged(),
         takeUntilDestroyed(),
       )
-      .subscribe((id) => {
-        if (id == null) return;
-        this.loadOrderDetail(id);
+      .subscribe((orderId) => {
+        if (orderId == null) return;
+        this.loadOrderDetail(orderId);
       });
   }
 
@@ -147,7 +235,59 @@ export class OrdersComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.loadOrders();
+    this.refreshStatusCounts();
+    this.reloadFromStart();
+  }
+
+  /** Conteos globales (chart admin) + badges de pestañas. */
+  refreshStatusCounts(): void {
+    this.statusCountsLoading.set(true);
+    this.chartsService
+      .ordersDistribution()
+      .pipe(
+        catchError(() =>
+          of({
+            total_orders: 0,
+            pending: 0,
+            confirmed: 0,
+            cancelled: 0,
+            available: 0,
+          }),
+        ),
+        finalize(() => {
+          this.statusCountsLoading.set(false);
+          this.chartInsightsLoaded.set(true);
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          const pending = Number(res.pending ?? 0) || 0;
+          const confirmed = Number(res.confirmed ?? 0) || 0;
+          const available = Number(res.available ?? 0) || 0;
+          const cancelled = Number(res.cancelled ?? 0) || 0;
+          const totalOrders = Number(res.total_orders ?? 0) || 0;
+
+          this.totalOrders.set(Math.max(0, totalOrders));
+          this.countRevisando.set(pending);
+          this.countPagado.set(confirmed);
+          this.availableTickets.set(available);
+          this.countCancelado.set(cancelled);
+          this.chartDonutGrand.set(Math.max(0, pending + confirmed + available));
+        },
+      });
+  }
+
+  statusTabBadgeCount(filterValue: string): number {
+    if (filterValue === '') return this.totalOrders();
+    if (filterValue === 'pending_validation') return this.countRevisando();
+    if (filterValue === 'confirmed') return this.countPagado();
+    if (filterValue === 'cancelled') return this.countCancelado();
+    return 0;
+  }
+
+  onStatusFilterChange(value: string): void {
+    this.statusFilter.set(value ?? '');
+    this.reloadFromStart();
   }
 
   statusLabel(status: string): string {
@@ -162,6 +302,14 @@ export class OrdersComponent implements OnInit {
     return 'status-chip';
   }
 
+  ticketsCount(order: Order | null | undefined): number | null {
+    if (!order) return null;
+    const raw = order.tickets_count;
+    if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+    const n = order.tickets?.length;
+    return typeof n === 'number' && Number.isFinite(n) ? n : null;
+  }
+
   onSearchInput(term: string): void {
     this.searchTerm.set(term);
   }
@@ -170,23 +318,30 @@ export class OrdersComponent implements OnInit {
     this.searchTerm.set('');
   }
 
-  loadOrders(page: number = this.currentPage()): void {
+  /** Primera página (o tras cambiar filtro / recargar). Si `refreshStats`, actualiza conteos del gráfico y badges. */
+  reloadFromStart(options?: { refreshStats?: boolean }): void {
+    this.listRequestGeneration += 1;
+    const gen = this.listRequestGeneration;
     this.loading.set(true);
+    this.loadingMore.set(false);
     this.error.set(null);
     this.ordersService
-      .listOrders(page, this.perPage())
+      .listOrders(1, this.perPage(), this.statusFilter() || null)
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (res) => {
+          if (gen !== this.listRequestGeneration) return;
           this.orders.set(res.data ?? []);
-          this.currentPage.set(res.current_page ?? page);
+          this.lastLoadedPage.set(res.current_page ?? 1);
           this.lastPage.set(res.last_page ?? 1);
           this.perPage.set(res.per_page ?? 25);
-          this.fromItem.set(res.from ?? 0);
-          this.toItem.set(res.to ?? 0);
           this.total.set(res.total ?? 0);
+          if (options?.refreshStats) this.refreshStatusCounts();
         },
         error: (err) => {
+          if (gen !== this.listRequestGeneration) return;
+          this.orders.set([]);
+          this.lastLoadedPage.set(0);
           this.error.set(
             String(err?.error?.message || err?.error?.detail || 'No fue posible cargar los pedidos.'),
           );
@@ -194,17 +349,41 @@ export class OrdersComponent implements OnInit {
       });
   }
 
-  goToPage(page: number): void {
-    if (page < 1 || page > this.lastPage() || page === this.currentPage()) return;
-    this.loadOrders(page);
+  loadNextPage(): void {
+    if (!this.hasMore() || this.loading() || this.loadingMore()) return;
+    const gen = this.listRequestGeneration;
+    const nextPage = this.lastLoadedPage() + 1;
+    this.loadingMore.set(true);
+    this.ordersService
+      .listOrders(nextPage, this.perPage(), this.statusFilter() || null)
+      .pipe(finalize(() => this.loadingMore.set(false)))
+      .subscribe({
+        next: (res) => {
+          if (gen !== this.listRequestGeneration) return;
+          const cur = this.orders();
+          const batch = res.data ?? [];
+          const ids = new Set(cur.map((o) => o.id));
+          const merged = [...cur, ...batch.filter((o) => !ids.has(o.id))];
+          this.orders.set(merged);
+          this.lastLoadedPage.set(res.current_page ?? nextPage);
+          this.lastPage.set(res.last_page ?? this.lastPage());
+          this.perPage.set(res.per_page ?? this.perPage());
+          this.total.set(res.total ?? this.total());
+        },
+        error: (err) => {
+          if (gen !== this.listRequestGeneration) return;
+          this.toast.error(
+            String(err?.error?.message || err?.error?.detail || 'No se pudieron cargar más pedidos.'),
+          );
+        },
+      });
   }
 
-  goPrevPage(): void {
-    this.goToPage(this.currentPage() - 1);
-  }
-
-  goNextPage(): void {
-    this.goToPage(this.currentPage() + 1);
+  onOrdersScroll(ev: Event): void {
+    const el = ev.target as HTMLElement;
+    const threshold = 200;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight > threshold) return;
+    this.loadNextPage();
   }
 
   openDetail(order: Order): void {
@@ -238,6 +417,7 @@ export class OrdersComponent implements OnInit {
 
   closeDetail(): void {
     if (this.reviewing() || this.deleting()) return;
+    this.ticketQrOpen.set(false);
     this.detailOpen.set(false);
     this.detailError.set(null);
     this.orderDetail.set(null);
@@ -312,6 +492,93 @@ export class OrdersComponent implements OnInit {
     this.voucherPreviewKind.set(null);
   }
 
+  /** Solo dígitos para `tel:` y WhatsApp (RD: 10 dígitos → prefijo país 1). */
+  private static phoneDigits(phone: string | null | undefined): string {
+    return String(phone ?? '').replace(/\D/g, '');
+  }
+
+  telOrderHref(phone: string | null | undefined): string | null {
+    const d = OrdersComponent.phoneDigits(phone);
+    if (!d) return null;
+    const intl = d.length === 10 ? `1${d}` : d;
+    return `tel:+${intl}`;
+  }
+
+  /** Enlace `wa.me` con número internacional sin `+`. */
+  whatsappOrderHref(phone: string | null | undefined): string | null {
+    const d = OrdersComponent.phoneDigits(phone);
+    if (!d) return null;
+    const wa = d.length === 10 ? `1${d}` : d;
+    return `https://wa.me/${wa}`;
+  }
+
+  ticketNumbersLine(detail: Order): string {
+    const list = detail.tickets ?? [];
+    if (!list.length) return '—';
+    return list
+      .map((t) => String(t.number ?? '').trim())
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  /** Fecha del comprobante si viene del API; si no, `updated_at` del pedido. */
+  proofUploadedAtIso(detail: Order): string | null {
+    const img = detail.payment_proof_image;
+    if (img && typeof img === 'object') {
+      const c = img['created_at'] ?? img['updated_at'];
+      if (typeof c === 'string' && c.trim()) return c;
+    }
+    const u = detail.updated_at;
+    return typeof u === 'string' && u.trim() ? u : null;
+  }
+
+  orderShareUrl(detail: Order): string {
+    if (!isPlatformBrowser(this.platformId)) return '';
+    return `${window.location.origin}/dashboard?view=orders&orderId=${detail.id}`;
+  }
+
+  ticketQrImageSrc(detail: Order): string {
+    const data = encodeURIComponent(this.orderShareUrl(detail));
+    return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${data}`;
+  }
+
+  openTicketQrSheet(): void {
+    if (!this.orderDetail()) return;
+    this.ticketQrOpen.set(true);
+  }
+
+  closeTicketQrSheet(): void {
+    this.ticketQrOpen.set(false);
+  }
+
+  openVoucherPreviewFromDetail(event?: Event): void {
+    const d = this.orderDetail();
+    if (!d) return;
+    this.openVoucherPreview(d, event);
+  }
+
+  copyOrderDetailToClipboard(): void {
+    const d = this.orderDetail();
+    if (!d) return;
+    const nums = this.ticketNumbersLine(d);
+    const qty = this.ticketsCount(d);
+    const lines = [
+      `Pedido #${d.id}`,
+      qty != null ? `Cantidad: ${qty}` : '',
+      nums !== '—' ? `Números: ${nums}` : '',
+      `Nombre: ${d.customer_name}`,
+      `Tel: ${d.phone}`,
+      `Email: ${d.email}`,
+      `Valor: ${formatMoneyDop(d.total_amount) ?? String(d.total_amount ?? '')}`,
+      `Estado: ${orderStatusLabelEs(d.status)}`,
+      `Rifa: ${d.raffle?.title ?? '—'}`,
+      `Cédula: ${d.cedula || '—'}`,
+      this.orderShareUrl(d) ? `Enlace: ${this.orderShareUrl(d)}` : '',
+    ].filter((x) => x.length > 0);
+    this.clipboard.copy(lines.join('\n'));
+    this.toast.success('Datos copiados al portapapeles');
+  }
+
   safeVoucherPreviewFrameSrc(): SafeResourceUrl | null {
     const u = this.voucherPreviewUrl();
     if (!u || this.voucherPreviewKind() !== 'pdf') return null;
@@ -322,9 +589,11 @@ export class OrdersComponent implements OnInit {
     return this.orderDetail()?.status === 'pending_validation';
   }
 
-  /** Solo administradores; el API solo permite DELETE cuando el pedido está cancelado. */
+  /** Solo administradores; el API permite DELETE cuando el pedido está `cancelled` o `confirmed`. */
   canDeleteOrder(order: Order | null | undefined): boolean {
-    return this.isAdmin() && order?.status === 'cancelled';
+    if (!this.isAdmin() || !order) return false;
+    const s = String(order.status ?? '').trim().toLowerCase();
+    return s === 'cancelled' || s === 'confirmed';
   }
 
   private static userIsAdmin(u: LoginUser | null): boolean {
@@ -359,7 +628,7 @@ export class OrdersComponent implements OnInit {
       return;
     }
     const o = this.orderPendingDelete() ?? this.orderDetail();
-    if (!o || o.status !== 'cancelled') {
+    if (!o || !this.canDeleteOrder(o)) {
       this.closeDeleteConfirm();
       return;
     }
@@ -384,7 +653,7 @@ export class OrdersComponent implements OnInit {
               replaceUrl: true,
             });
           }
-          this.loadOrders(this.currentPage());
+          this.reloadFromStart({ refreshStats: true });
         },
         error: (err) => {
           this.toast.error(
@@ -430,7 +699,7 @@ export class OrdersComponent implements OnInit {
         next: (updated) => {
           this.orderDetail.set(updated);
           this.toast.successFromApiResponse(updated, approved ? 'Pedido aprobado' : 'Pedido rechazado');
-          this.loadOrders(this.currentPage());
+          this.reloadFromStart({ refreshStats: true });
           if (updated.status !== 'pending_validation') {
             this.reviewNotes.setValue(updated.admin_notes ?? '');
           }

@@ -10,16 +10,86 @@
 }
 
 <section class="panel" aria-label="Listado de órdenes">
+  <div class="orders-insights" aria-label="Resumen y filtros por estado">
+    <div class="orders-insights__chart">
+      <div class="orders-insights__chart-head">
+        <span class="orders-insights__title">Distribución</span>
+        @if (statusCountsLoading() && chartInsightsLoaded()) {
+          <app-spinner [size]="18" [stroke]="3" label="Actualizando conteos" />
+        }
+      </div>
+      @if (statusCountsLoading() && !chartInsightsLoaded()) {
+        <div class="orders-insights__skeleton">
+          <app-spinner [size]="28" [stroke]="3" label="Cargando totales" />
+          <span>Cargando totales…</span>
+        </div>
+      } @else if (chartInsightsLoaded() && totalOrders() === 0 && availableTickets() === 0) {
+        <p class="orders-insights__empty">No hay pedidos registrados o no se pudieron cargar los totales.</p>
+      } @else {
+        <div class="orders-chart-layout">
+          <div
+            class="orders-chart__donut-wrap"
+            role="img"
+            [attr.aria-label]="chartAriaLabel()"
+          >
+            <div class="orders-chart__ring" [style.background]="chartDonutGradient()"></div>
+            <div class="orders-chart__center">
+              <span class="orders-chart__center-val">{{ availableTickets() | number: '1.0-0' }}</span>
+              <span class="orders-chart__center-label">Disponible</span>
+            </div>
+          </div>
+          <ul class="orders-chart-legend" aria-label="Leyenda por estado">
+            @for (row of chartLegend(); track row.key) {
+              <li class="orders-chart-legend__item">
+                <span class="orders-chart-legend__swatch" [style.background]="row.color"></span>
+                <span class="orders-chart-legend__label">{{ row.label }}</span>
+                <span class="orders-chart-legend__meta">
+                  <span class="orders-chart-legend__pct">{{ row.pct | number: '1.1-1' }}%</span>
+                  <span class="orders-chart-legend__n">({{ row.n | number: '1.0-0' }})</span>
+                </span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+
+    <div class="orders-insights__tabs">
+      <span class="orders-insights__title orders-insights__title--tabs">Estado del listado</span>
+      <div class="status-segment-scroll">
+        <div class="status-segment" role="tablist" aria-label="Filtrar pedidos por estado">
+          @for (tab of statusTabs; track tab.filterValue) {
+            <button
+              type="button"
+              role="tab"
+              class="status-segment__btn"
+              [class.status-segment__btn--active]="statusFilter() === tab.filterValue"
+              [attr.aria-selected]="statusFilter() === tab.filterValue"
+              (click)="onStatusFilterChange(tab.filterValue)"
+            >
+              <span class="status-segment__label">{{ tab.label }}</span>
+              <span
+                class="status-segment__badge"
+                [class.status-segment__badge--active]="statusFilter() === tab.filterValue"
+              >
+                {{ statusTabBadgeCount(tab.filterValue) | number: '1.0-0' }}
+              </span>
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="toolbar">
     <div class="total">
-      Total: {{ total() }}
-      <span class="range"> | Mostrando {{ fromItem() }}-{{ toItem() }} de {{ total() }}</span>
+      Total : {{ total() }} | Cargados: {{ orders().length }}
     </div>
     <div class="toolbar-actions">
       <div class="search">
         <input
           type="text"
-          placeholder="Buscar por cliente, cédula, rifa, estado..."
+          placeholder="Buscar en lo cargado: cliente, cédula, rifa…"
           [value]="searchTerm()"
           (input)="onSearchInput($any($event.target).value)"
         />
@@ -27,7 +97,12 @@
           <button type="button" class="btn-inline" (click)="clearSearch()">Limpiar</button>
         }
       </div>
-      <button type="button" class="btn btn-ghost refresh" (click)="loadOrders()" [disabled]="loading()">
+      <button
+        type="button"
+        class="btn btn-ghost refresh"
+        (click)="reloadFromStart({ refreshStats: true })"
+        [disabled]="loading() || loadingMore()"
+      >
         @if (loading()) {
           <app-spinner [size]="16" [stroke]="3" label="Cargando" />
           Cargando...
@@ -38,120 +113,196 @@
     </div>
   </div>
 
-  <div class="table-wrap">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Cliente</th>
-          <th>Cédula</th>
-          <th>Rifa</th>
-          <th>Total</th>
-          <th>Comprobante</th>
-          <th>Estado</th>
-          <th>Creado</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        @if (!loading() && visibleOrders().length === 0) {
+  <div class="orders-infinite-wrap" (scroll)="onOrdersScroll($event)">
+    <div class="table-wrap orders-table-desktop">
+      <table class="table">
+        <thead>
           <tr>
-            <td colspan="9" class="empty">No hay pedidos para mostrar.</td>
+            <th>ID</th>
+            <th>Cliente</th>
+            <th>Cédula</th>
+            <th>Rifa</th>
+            <th>Cantidad</th>
+            <th>Total</th>
+            <th>Comprobante</th>
+            <th>Estado</th>
+            <th>Creado</th>
+            <th>Acciones</th>
           </tr>
-        } @else {
-          @for (order of visibleOrders(); track order.id) {
+        </thead>
+        <tbody>
+          @if (loading() && orders().length === 0) {
             <tr>
-              <td>{{ order.id }}</td>
-              <td>
-                <div class="cell-stack">
-                  <span class="cell-primary">{{ order.customer_name }}</span>
-                  <span class="cell-muted">{{ order.email }}</span>
-                </div>
-              </td>
-              <td>{{ (order.cedula | drCedula) || '—' }}</td>
-              <td>{{ order.raffle?.title ?? '—' }}</td>
-              <td class="nowrap">{{ (order.total_amount | formatMoney) || '—' }}</td>
-              <td>
-                @if (proofMediaUrl(order); as vUrl) {
-                  <button
-                    type="button"
-                    class="voucher-trigger"
-                    (click)="openVoucherPreview(order, $event)"
-                    [title]="isImageProof(order) ? 'Ver imagen' : isPdfProof(order) ? 'Vista previa PDF' : 'Abrir archivo'"
-                    [attr.aria-label]="'Vista previa comprobante, pedido ' + order.id"
-                  >
-                    @if (isImageProof(order)) {
-                      <img class="voucher-thumb" [src]="vUrl" alt="" loading="lazy" />
-                    } @else if (isPdfProof(order)) {
-                      <span class="voucher-badge voucher-badge--pdf">
-                        <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>
-                        PDF
-                      </span>
-                    } @else {
-                      <span class="voucher-badge voucher-badge--file">
-                        <mat-icon aria-hidden="true">attach_file</mat-icon>
-                        Archivo
-                      </span>
-                    }
-                  </button>
-                } @else {
-                  <span class="voucher-none" aria-hidden="true">—</span>
-                }
-              </td>
-              <td>
-                <span [class]="statusClass(order.status)">{{ statusLabel(order.status) }}</span>
-              </td>
-              <td class="nowrap">{{ order.created_at | formatDateTime }}</td>
-              <td>
-                <div class="table-actions">
-                  <button
-                    type="button"
-                    class="action-icon action-icon--view"
-                    (click)="openDetail(order)"
-                    aria-label="Ver pedido"
-                    title="Ver"
-                  >
-                    <mat-icon aria-hidden="true">visibility</mat-icon>
-                  </button>
-                  @if (canDeleteOrder(order)) {
-                    <button
-                      type="button"
-                      class="action-icon action-icon--delete"
-                      (click)="openDeleteConfirm(order)"
-                      [disabled]="reviewing() || deleting()"
-                      aria-label="Eliminar pedido cancelado (solo administradores)"
-                      title="Eliminar (admin, pedido cancelado)"
-                    >
-                      <mat-icon aria-hidden="true">delete_outline</mat-icon>
-                    </button>
-                  }
-                </div>
+              <td colspan="10" class="loading-row">
+                <app-spinner [size]="28" [stroke]="3" label="Cargando pedidos" />
+                <span>Cargando pedidos…</span>
               </td>
             </tr>
+          } @else if (!loading() && visibleOrders().length === 0) {
+            <tr>
+              <td colspan="10" class="empty">No hay pedidos para mostrar.</td>
+            </tr>
+          } @else {
+            @for (order of visibleOrders(); track order.id) {
+              <tr class="order-table-row--clickable" (click)="openDetail(order)">
+                <td>{{ order.id }}</td>
+                <td>
+                  <div class="cell-stack">
+                    <span class="cell-primary">{{ order.customer_name }}</span>
+                    <span class="cell-muted">{{ order.email }}</span>
+                  </div>
+                </td>
+                <td>{{ (order.cedula | drCedula) || '—' }}</td>
+                <td>{{ order.raffle?.title ?? '—' }}</td>
+                <td>{{ ticketsCount(order) ?? '—' }}</td>
+                <td class="nowrap">{{ (order.total_amount | formatMoney) || '—' }}</td>
+                <td>
+                  @if (proofMediaUrl(order); as vUrl) {
+                    <button
+                      type="button"
+                      class="voucher-trigger"
+                      (click)="openVoucherPreview(order, $event); $event.stopPropagation()"
+                      [title]="isImageProof(order) ? 'Ver imagen' : isPdfProof(order) ? 'Vista previa PDF' : 'Abrir archivo'"
+                      [attr.aria-label]="'Vista previa comprobante, pedido ' + order.id"
+                    >
+                      @if (isImageProof(order)) {
+                        <img class="voucher-thumb" [src]="vUrl" alt="" loading="lazy" />
+                      } @else if (isPdfProof(order)) {
+                        <span class="voucher-badge voucher-badge--pdf">
+                          <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>
+                          PDF
+                        </span>
+                      } @else {
+                        <span class="voucher-badge voucher-badge--file">
+                          <mat-icon aria-hidden="true">attach_file</mat-icon>
+                          Archivo
+                        </span>
+                      }
+                    </button>
+                  } @else {
+                    <span class="voucher-none" aria-hidden="true">—</span>
+                  }
+                </td>
+                <td>
+                  <span [class]="statusClass(order.status)">{{ statusLabel(order.status) }}</span>
+                </td>
+                <td class="nowrap">{{ order.created_at | formatDateTime }}</td>
+                <td>
+                  <div class="table-actions">
+                    <button
+                      type="button"
+                      class="action-icon action-icon--view"
+                      (click)="openDetail(order); $event.stopPropagation()"
+                      aria-label="Ver pedido"
+                      title="Ver"
+                    >
+                      <mat-icon aria-hidden="true">visibility</mat-icon>
+                    </button>
+                    @if (canDeleteOrder(order)) {
+                      <button
+                        type="button"
+                        class="action-icon action-icon--delete"
+                        (click)="openDeleteConfirm(order); $event.stopPropagation()"
+                        [disabled]="reviewing() || deleting()"
+                        aria-label="Eliminar pedido (admin: cancelado o pagado)"
+                        title="Eliminar (admin: cancelado o pagado)"
+                      >
+                        <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
           }
-        }
-      </tbody>
-    </table>
-  </div>
+        </tbody>
+      </table>
+    </div>
 
-  <div class="pagination">
-    <button type="button" class="btn-inline" (click)="goPrevPage()" [disabled]="loading() || currentPage() <= 1">
-      Anterior
-    </button>
-    @for (page of pageNumbers(); track page) {
-      <button
-        type="button"
-        class="btn-inline"
-        [class.active-page]="page === currentPage()"
-        (click)="goToPage(page)"
-        [disabled]="loading()"
-      >
-        {{ page }}
-      </button>
+    <div class="orders-mobile-list" aria-label="Pedidos (vista móvil)">
+      <table class="orders-table-mobile">
+        <thead>
+          <tr>
+            <th scope="col" class="orders-table-mobile__th orders-table-mobile__col-id">ID</th>
+            <th scope="col" class="orders-table-mobile__th orders-table-mobile__col-cliente">Cliente</th>
+            <th scope="col" class="orders-table-mobile__th orders-table-mobile__col-cantidad">Cant.</th>
+            <th scope="col" class="orders-table-mobile__th orders-table-mobile__col-estado">Estado</th>
+            <th scope="col" class="orders-table-mobile__th orders-table-mobile__col-accion">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading() && orders().length === 0) {
+            <tr>
+              <td colspan="5" class="orders-table-mobile__loading">
+                <app-spinner [size]="28" [stroke]="3" label="Cargando pedidos" />
+                <span>Cargando pedidos…</span>
+              </td>
+            </tr>
+          } @else if (!loading() && visibleOrders().length === 0) {
+            <tr>
+              <td colspan="5" class="orders-table-mobile__empty">No hay pedidos para mostrar.</td>
+            </tr>
+          } @else {
+            @for (order of visibleOrders(); track order.id) {
+              <tr class="order-table-row--clickable" (click)="openDetail(order)">
+                <td class="orders-table-mobile__td orders-table-mobile__col-id">{{ order.id }}</td>
+                <td class="orders-table-mobile__td orders-table-mobile__col-cliente">
+                  <span class="orders-table-mobile__cliente" [attr.title]="order.customer_name">{{
+                    order.customer_name
+                  }}</span>
+                </td>
+                <td class="orders-table-mobile__td orders-table-mobile__col-cantidad">
+                  <span class="orders-table-mobile__qty">{{ ticketsCount(order) ?? '—' }}</span>
+                </td>
+                <td class="orders-table-mobile__td orders-table-mobile__col-estado">
+                  <span [class]="statusClass(order.status) + ' status-chip--table-mobile'">{{
+                    statusLabel(order.status)
+                  }}</span>
+                </td>
+                <td class="orders-table-mobile__td orders-table-mobile__col-accion" (click)="$event.stopPropagation()">
+                  <div class="table-actions table-actions--mobile-row">
+                    <button
+                      type="button"
+                      class="action-icon action-icon--view action-icon--mobile-table"
+                      (click)="openDetail(order); $event.stopPropagation()"
+                      aria-label="Ver pedido"
+                      title="Ver"
+                    >
+                      <mat-icon aria-hidden="true">visibility</mat-icon>
+                    </button>
+                    @if (canDeleteOrder(order)) {
+                      <button
+                        type="button"
+                        class="action-icon action-icon--delete action-icon--mobile-table"
+                        (click)="openDeleteConfirm(order); $event.stopPropagation()"
+                        [disabled]="reviewing() || deleting()"
+                        aria-label="Eliminar pedido (admin: cancelado o pagado)"
+                        title="Eliminar (admin)"
+                      >
+                        <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if (loadingMore()) {
+      <div class="load-more-bar" role="status" aria-live="polite">
+        <app-spinner [size]="20" [stroke]="3" label="Cargando más" />
+        Cargando más…
+      </div>
     }
-    <button type="button" class="btn-inline" (click)="goNextPage()" [disabled]="loading() || currentPage() >= lastPage()">
-      Siguiente
-    </button>
+    @if (!loading() && !loadingMore() && hasMore() && orders().length > 0) {
+      <p class="infinite-hint">Desplázate hacia abajo para cargar más.</p>
+    }
+    @if (!hasMore() && orders().length > 0 && total() > 0) {
+      <p class="infinite-hint infinite-hint--done">No hay más pedidos en este filtro.</p>
+    }
   </div>
 </section>
 
@@ -192,20 +343,28 @@
 }
 
 @if (detailOpen()) {
-  <div class="modal-backdrop" role="presentation" (click)="closeDetail()">
-    <mat-card class="order-detail-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
-      <mat-card-header class="order-detail-card__header">
-        @if (orderDetail(); as hdr) {
-          <mat-card-title>Pedido #{{ hdr.id }}</mat-card-title>
-        } @else {
-          <mat-card-title>Pedido</mat-card-title>
-        }
-        @if (orderDetail(); as amt) {
-          <mat-card-subtitle class="order-detail-card__amount">{{ (amt.total_amount | formatMoney) || '—' }}</mat-card-subtitle>
-        }
-      </mat-card-header>
+  <div class="modal-backdrop order-detail-backdrop" role="presentation" (click)="closeDetail()">
+    <div
+      class="order-detail-sheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="order-detail-title"
+      (click)="$event.stopPropagation()"
+    >
+      <header class="order-detail-sheet__head">
+        <h2 id="order-detail-title" class="order-detail-sheet__title">Detalles</h2>
+        <button
+          type="button"
+          class="order-detail-sheet__close"
+          (click)="closeDetail()"
+          [disabled]="reviewing() || deleting()"
+          aria-label="Cerrar"
+        >
+          <span aria-hidden="true">×</span>
+        </button>
+      </header>
 
-      <mat-card-content class="order-detail-card__body">
+      <div class="order-detail-sheet__scroll">
         @if (detailLoading()) {
           <div class="modal-loading">
             <app-spinner [size]="32" [stroke]="3" label="Cargando pedido" />
@@ -216,97 +375,190 @@
         } @else {
           @if (orderDetail(); as detail) {
           @if (detailError()) {
-            <div class="list-error order-detail-card__alert">{{ detailError() }}</div>
+            <div class="list-error order-detail-sheet__alert">{{ detailError() }}</div>
           }
 
-          <div class="detail-grid">
-            <div class="detail-field">
-              <span class="detail-label">Estado</span>
-              <span [class]="statusClass(detail.status)">{{ statusLabel(detail.status) }}</span>
+          <div class="detail-kv">
+            @if (detail.tickets?.length) {
+              <div class="detail-kv__row">
+                <span class="detail-kv__k">Números</span>
+                <span class="detail-kv__v detail-kv__v--nums">{{ ticketNumbersLine(detail) }}</span>
+              </div>
+            }
+            <div class="detail-kv__row">
+              <span class="detail-kv__k">Pedido</span>
+              <span class="detail-kv__v">#{{ detail.id }}</span>
             </div>
-            <div class="detail-field">
-              <span class="detail-label">Total</span>
-              <span class="detail-value">{{ (detail.total_amount | formatMoney) || '—' }}</span>
+            <div class="detail-kv__row">
+              <span class="detail-kv__k">Cantidad</span>
+              <span class="detail-kv__v">{{ ticketsCount(detail) ?? '—' }}</span>
             </div>
-            <div class="detail-field detail-field--wide">
-              <span class="detail-label">Cliente</span>
-              <span class="detail-value">{{ detail.customer_name }}</span>
+            <div class="detail-kv__row">
+              <span class="detail-kv__k">Nombre</span>
+              <span class="detail-kv__v">{{ detail.customer_name }}</span>
             </div>
-            <div class="detail-field">
-              <span class="detail-label">Cédula</span>
-              <span class="detail-value">{{ (detail.cedula | drCedula) || '—' }}</span>
+            <div class="detail-kv__row">
+              <span class="detail-kv__k">Registro</span>
+              <span class="detail-kv__v">{{ detail.created_at | formatDateTime }}</span>
             </div>
-            <div class="detail-field">
-              <span class="detail-label">Teléfono</span>
-              <span class="detail-value">{{ detail.phone }}</span>
+            <div class="detail-kv__row">
+              <span class="detail-kv__k">Valor</span>
+              <span class="detail-kv__v">{{ (detail.total_amount | formatMoney) || '—' }}</span>
             </div>
-            <div class="detail-field detail-field--wide">
-              <span class="detail-label">Correo</span>
-              <span class="detail-value">{{ detail.email }}</span>
-            </div>
-            <div class="detail-field detail-field--wide">
-              <span class="detail-label">Rifa</span>
-              <span class="detail-value">{{ detail.raffle?.title ?? '—' }}</span>
-            </div>
-            <div class="detail-field detail-field--wide">
-              <span class="detail-label">Participante</span>
-              <span class="detail-value">
-                @if (detail.participant; as p) {
-                  @if (p.name.trim()) {
-                    {{ p.name }}
-                  } @else if (detail.customer_name.trim()) {
-                    {{ detail.customer_name }} 
-                  } @else {
-                    —
+            <div class="detail-kv__row detail-kv__row--tel">
+              <span class="detail-kv__k">Tel.</span>
+              <div class="detail-kv__tel">
+                <span class="detail-kv__v">{{ detail.phone || '—' }}</span>
+                <span class="detail-kv__tel-actions">
+                  @if (whatsappOrderHref(detail.phone); as wa) {
+                    <a
+                      class="contact-action contact-action--wa"
+                      [href]="wa"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="WhatsApp"
+                      aria-label="Abrir WhatsApp con este número"
+                    >
+                      <svg class="contact-action__svg" viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          fill="currentColor"
+                          d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.881 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"
+                        />
+                      </svg>
+                    </a>
                   }
-                } @else if (detail.customer_name.trim()) {
-                  {{ detail.customer_name }} 
+                  @if (telOrderHref(detail.phone); as tel) {
+                    <a class="contact-action contact-action--call" [href]="tel" title="Llamar" aria-label="Llamar a este número">
+                      <mat-icon aria-hidden="true">call</mat-icon>
+                    </a>
+                  }
+                </span>
+              </div>
+            </div>
+            <div class="detail-kv__row">
+              <span class="detail-kv__k">Email</span>
+              <span class="detail-kv__v">
+                @if (detail.email.trim()) {
+                  <a class="detail-kv__mailto" [href]="'mailto:' + detail.email">{{ detail.email }}</a>
                 } @else {
                   —
                 }
               </span>
             </div>
-            <div class="detail-field">
-              <span class="detail-label">Creado</span>
-              <span class="detail-value">{{ detail.created_at | formatDateTime }}</span>
+            <div class="detail-kv__row">
+              <span class="detail-kv__k">Rifa</span>
+              <span class="detail-kv__v">{{ detail.raffle?.title ?? '—' }}</span>
             </div>
-            <div class="detail-field">
-              <span class="detail-label">Vence</span>
-              <span class="detail-value">{{ detail.expires_at ? (detail.expires_at | formatDateTime) : '—' }}</span>
+            <div class="detail-kv__row">
+              <span class="detail-kv__k">Cédula</span>
+              <span class="detail-kv__v">{{ (detail.cedula | drCedula) || '—' }}</span>
             </div>
-            <div class="detail-field">
-              <span class="detail-label">Validado</span>
-              <span class="detail-value">{{ detail.validated_at ? (detail.validated_at | formatDateTime) : '—' }}</span>
+            <div class="detail-kv__row">
+              <span class="detail-kv__k">Vence</span>
+              <span class="detail-kv__v">{{ detail.expires_at ? (detail.expires_at | formatDateTime) : '—' }}</span>
             </div>
-            @if (detail.admin_notes) {
-              <div class="detail-field detail-field--full">
-                <span class="detail-label">Notas admin</span>
-                <span class="detail-value detail-value--multiline">{{ detail.admin_notes }}</span>
+            <div class="detail-kv__row">
+              <span class="detail-kv__k">Validado</span>
+              <span class="detail-kv__v">{{ detail.validated_at ? (detail.validated_at | formatDateTime) : '—' }}</span>
+            </div>
+          </div>
+
+          <div class="detail-status-strip" role="group" aria-label="Estado del pedido (referencia visual)">
+            <span
+              class="detail-status-chip"
+              [class.detail-status-chip--active]="detail.status === 'pending_validation'"
+            >
+              <span class="detail-status-chip__dot detail-status-chip__dot--warn"></span>
+              Revisando
+            </span>
+            <span
+              class="detail-status-chip"
+              [class.detail-status-chip--active]="detail.status === 'confirmed'"
+            >
+              @if (detail.status === 'confirmed') {
+                <mat-icon class="detail-status-chip__icon" aria-hidden="true">check_circle</mat-icon>
+              } @else {
+                <span class="detail-status-chip__dot detail-status-chip__dot--ok"></span>
+              }
+              Pagado
+            </span>
+            <span
+              class="detail-status-chip"
+              [class.detail-status-chip--active]="detail.status === 'cancelled'"
+            >
+              <span class="detail-status-chip__dot detail-status-chip__dot--muted"></span>
+              Cancelado
+            </span>
+          </div>
+
+          @if (canReview()) {
+            <div class="detail-review-below-status">
+              <p class="detail-review-below-status__hint">
+                Aprobar marca el pedido como pagado; rechazar cancela y libera los números.
+              </p>
+              <div class="review-actions review-actions--under-chips">
+                <button
+                  type="button"
+                  class="detail-footer-btn detail-footer-btn--approve"
+                  (click)="approve()"
+                  [disabled]="reviewing()"
+                >
+                  <mat-icon aria-hidden="true">check</mat-icon>
+                  <span>Aprobar</span>
+                </button>
+                <button
+                  type="button"
+                  class="detail-footer-btn detail-footer-btn--reject"
+                  (click)="openRejectConfirm()"
+                  [disabled]="reviewing()"
+                >
+                  <mat-icon aria-hidden="true">close</mat-icon>
+                  <span>Rechazar</span>
+                </button>
               </div>
+            </div>
+          }
+
+          <div class="detail-notes-card">
+            <div class="detail-notes-card__head">
+              <mat-icon class="detail-notes-card__ico" aria-hidden="true">description</mat-icon>
+              <span class="detail-notes-card__title">Notas privadas</span>
+            </div>
+            @if (canReview()) {
+              <mat-form-field appearance="outline" class="review-notes-field" subscriptSizing="dynamic">
+                <mat-label>Agregar notas</mat-label>
+                <textarea matInput rows="3" [formControl]="reviewNotes" placeholder="Opcional"></textarea>
+              </mat-form-field>
+            } @else if (detail.admin_notes?.trim()) {
+              <p class="detail-notes-card__body">{{ detail.admin_notes }}</p>
+            } @else {
+              <p class="detail-notes-card__placeholder">Sin notas guardadas.</p>
             }
           </div>
 
-          @if (proofMediaUrl(detail); as proofUrl) {
-            <mat-divider class="order-detail-card__divider" />
-            <div class="proof-block">
-              <div class="proof-block__title">Comprobante de pago</div>
-              @if (isImageProof(detail)) {
-                <a class="proof-image-link" [href]="proofUrl" target="_blank" rel="noopener noreferrer">
-                  <img class="proof-image" [src]="proofUrl" alt="Comprobante de pago" />
-                </a>
-              } @else {
-                <a mat-stroked-button color="primary" [href]="proofUrl" target="_blank" rel="noopener noreferrer">
-                  <mat-icon>open_in_new</mat-icon>
-                  Abrir comprobante
-                </a>
-              }
+          @if (proofMediaUrl(detail)) {
+            <div class="detail-proof-card">
+              <div class="detail-proof-card__main">
+                <mat-icon class="detail-proof-card__ico" aria-hidden="true">insert_drive_file</mat-icon>
+                <div class="detail-proof-card__text">
+                  <div class="detail-proof-card__title">Comprobante</div>
+                  @if (proofUploadedAtIso(detail); as pAt) {
+                    <div class="detail-proof-card__meta">Adjuntado el {{ pAt | formatDateTime }}</div>
+                  } @else {
+                    <div class="detail-proof-card__meta">Archivo adjunto</div>
+                  }
+                  <button type="button" class="detail-proof-card__link" (click)="openVoucherPreviewFromDetail($event)">
+                    Revisar
+                  </button>
+                </div>
+              </div>
             </div>
           }
 
           @if (detail.tickets?.length) {
-            <mat-divider class="order-detail-card__divider" />
+            <mat-divider class="order-detail-sheet__divider" />
             <div class="tickets-block">
-              <div class="tickets-block__title">Boletos ({{ detail.tickets!.length }})</div>
+              <div class="tickets-block__title">Detalle boletos ({{ detail.tickets!.length }})</div>
               <div class="table-wrap table-wrap--nested">
                 <table class="table table--compact">
                   <thead>
@@ -331,61 +583,65 @@
               </div>
             </div>
           }
-
-          @if (canReview()) {
-            <mat-divider class="order-detail-card__divider" />
-            <div class="review-block">
-              <div class="review-block__title">Validar pago</div>
-              <p class="review-block__hint">Solo pedidos en «Pendiente». Aprobar confirma y marca boletos vendidos; rechazar libera números y cancela el pedido.</p>
-              <mat-form-field appearance="outline" class="review-notes-field" subscriptSizing="dynamic">
-                <mat-label>Notas del administrador</mat-label>
-                <textarea matInput rows="3" [formControl]="reviewNotes" placeholder="Opcional"></textarea>
-              </mat-form-field>
-              <div class="review-actions">
-                <button
-                  type="button"
-                  mat-flat-button
-                  class="review-btn review-btn--approve"
-                  (click)="approve()"
-                  [disabled]="reviewing()"
-                >
-                  Aprobar
-                </button>
-                <button
-                  type="button"
-                  mat-stroked-button
-                  class="review-btn review-btn--reject"
-                  (click)="openRejectConfirm()"
-                  [disabled]="reviewing()"
-                >
-                  Rechazar
-                </button>
-              </div>
-            </div>
-          }
           }
         }
-      </mat-card-content>
+      </div>
 
-      <mat-card-actions class="order-detail-card__actions" align="end">
-        @if (orderDetail(); as d) {
-          @if (canDeleteOrder(d)) {
+      @if (orderDetail(); as dFooter) {
+        <footer class="order-detail-sheet__footer">
+          <button
+            type="button"
+            class="detail-footer-btn detail-footer-btn--copy"
+            (click)="copyOrderDetailToClipboard()"
+            [disabled]="reviewing() || deleting() || detailLoading()"
+            title="Copiar datos del pedido"
+            aria-label="Copiar datos del pedido"
+          >
+            <mat-icon aria-hidden="true">content_copy</mat-icon>
+          </button>
+          <button
+            type="button"
+            class="detail-footer-btn detail-footer-btn--qr"
+            (click)="openTicketQrSheet()"
+            [disabled]="reviewing() || deleting() || detailLoading()"
+          >
+            <mat-icon aria-hidden="true">qr_code_2</mat-icon>
+            <span>Ticket digital</span>
+          </button>
+          @if (canDeleteOrder(dFooter)) {
             <button
               type="button"
-              mat-stroked-button
-              color="warn"
-              class="order-detail-delete-btn"
+              class="detail-footer-btn detail-footer-btn--delete"
               (click)="openDeleteConfirm()"
               [disabled]="reviewing() || deleting()"
+              title="Eliminar pedido (admin: cancelado o pagado)"
+              aria-label="Eliminar pedido (admin: cancelado o pagado)"
             >
-              <mat-icon aria-hidden="true">delete_outline</mat-icon>
-              Eliminar pedido
+              <mat-icon aria-hidden="true">highlight_off</mat-icon>
+              <span>Eliminar</span>
             </button>
           }
+        </footer>
+      }
+
+      @if (ticketQrOpen()) {
+        @if (orderDetail(); as dQr) {
+          <div class="ticket-qr-layer" role="presentation" (click)="closeTicketQrSheet()">
+            <div class="ticket-qr-panel" role="dialog" aria-modal="true" aria-label="Código QR del pedido" (click)="$event.stopPropagation()">
+              <div class="ticket-qr-panel__head">
+                <span class="ticket-qr-panel__title">Ticket digital</span>
+                <button type="button" class="ticket-qr-panel__close" (click)="closeTicketQrSheet()" aria-label="Cerrar QR">
+                  ×
+                </button>
+              </div>
+              <p class="ticket-qr-panel__hint">Escanea para abrir este pedido en el panel.</p>
+              <img class="ticket-qr-panel__img" [src]="ticketQrImageSrc(dQr)" width="220" height="220" alt="Código QR del enlace al pedido" />
+              <code class="ticket-qr-panel__url">{{ orderShareUrl(dQr) }}</code>
+            </div>
+          </div>
         }
-        <button type="button" mat-button (click)="closeDetail()" [disabled]="reviewing() || deleting()">Cerrar</button>
-      </mat-card-actions>
-    </mat-card>
+      }
+    </div>
   </div>
 }
 
