@@ -5,8 +5,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { NavigationEnd, Router } from '@angular/router';
-import { forkJoin, merge, of } from 'rxjs';
-import { catchError, distinctUntilChanged, filter, finalize, map } from 'rxjs/operators';
+import { from, merge, of } from 'rxjs';
+import { catchError, concatMap, distinctUntilChanged, filter, finalize, map, take, toArray } from 'rxjs/operators';
 
 import { environment } from '../../../environments/environment';
 import { LoginUser } from '../../core/auth/models/login-response.model';
@@ -20,12 +20,20 @@ import { FormatMoneyPipe } from '../../core/pipes/format-money.pipe';
 import { DrCedulaPipe } from '../../core/pipes/dr-cedula.pipe';
 import { formatMoneyDop } from '../../core/helpers/money-format.helper';
 import { ChartsService } from '../../core/charts/services/charts.service';
-import { Order, OrdersService, PaginatedOrdersResponse } from '../../core/orders/services/orders.service';
+import {
+  BulkOrderDeleteSkipped,
+  Order,
+  ORDERS_BULK_DELETE_MAX_IDS,
+  OrdersService,
+  PaginatedOrdersResponse,
+} from '../../core/orders/services/orders.service';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 @Component({
   selector: 'app-orders',
@@ -40,10 +48,12 @@ import { MatInputModule } from '@angular/material/input';
     DrCedulaPipe,
     ClipboardModule,
     MatButtonModule,
+    MatCheckboxModule,
     MatDividerModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    MatSlideToggleModule,
   ],
   templateUrl: './orders.component.html',
   styleUrl: './orders.component.css',
@@ -65,15 +75,29 @@ export class OrdersComponent implements OnInit {
   readonly statusCountsLoading = signal(false);
   /** Total de pedidos (todas las rifas) desde `/api/admin/charts/orders-distribution`. */
   readonly totalOrders = signal(0);
-  /** Denominador del donut: pending + confirmed + available (sin cancelados). */
+  /** Conteos de ÓRDENES (para badges de pestañas). */
+  readonly pendingOrders = signal(0);
+  readonly confirmedOrders = signal(0);
+  readonly cancelledOrders = signal(0);
+
+  /** Denominador del donut: tickets pendientes + tickets confirmados + available (sin cancelados). */
   readonly chartDonutGrand = signal(0);
+  /** Tickets en estado pendiente (Revisando) para el gráfico. */
   readonly countRevisando = signal(0);
+  /** Tickets en estado confirmado (Pagado) para el gráfico. */
   readonly countPagado = signal(0);
-  readonly countCancelado = signal(0);
   /** Cupo disponible total (suma pool restante de todas las rifas). */
   readonly availableTickets = signal(0);
   /** Evita “parpadeo” vacío mientras llega el primer payload del chart. */
   readonly chartInsightsLoaded = signal(false);
+
+  // ── Bloqueo de órdenes públicas ──────────────────────────────
+  /** Estado actual del bloqueo (toggle). */
+  readonly ordersBlocked = signal(false);
+  /** Cargando el estado del bloqueo. */
+  readonly ordersBlockLoading = signal(false);
+  /** Guardando el cambio de bloqueo. */
+  readonly ordersBlockSaving = signal(false);
 
   readonly hasMore = computed(() => this.lastLoadedPage() < this.lastPage());
 
@@ -93,15 +117,10 @@ export class OrdersComponent implements OnInit {
     // Leyenda: solo pedidos (revisando/pagado). El cupo disponible se refleja en el donut,
     // pero no en la lista para evitar solapes con porcentajes muy altos.
     const list = [
-      { key: 'revisando', label: 'Revisando', n: this.countRevisando(), color: '#ea580c' },
-      { key: 'pagado', label: 'Pagado', n: this.countPagado(), color: '#16a34a' },
+      { key: 'revisando', label: 'Tickes Pendientes', n: this.countRevisando(), color: '#ea580c' },
+      { key: 'pagado', label: 'Tickes Pagados', n: this.countPagado(), color: '#16a34a' },
     ];
-    return list
-      .filter((r) => r.n > 0)
-      .map((r) => ({
-        ...r,
-        pct: (r.n / grand) * 100,
-      }));
+    return list.filter((r) => r.n > 0);
   });
 
   readonly chartDonutGradient = computed(() => {
@@ -132,14 +151,13 @@ export class OrdersComponent implements OnInit {
   readonly chartAriaLabel = computed(() => {
     const grand = this.chartDonutGrand();
     if (grand <= 0) return 'Sin datos de distribución';
-    const pct = (n: number) => (Math.max(0, n) / grand) * 100;
     const revisando = this.countRevisando();
     const pagado = this.countPagado();
     const disponible = this.availableTickets();
     const parts: string[] = [];
-    if (revisando > 0) parts.push(`Revisando ${Math.round(pct(revisando) * 10) / 10}%`);
-    if (pagado > 0) parts.push(`Pagado ${Math.round(pct(pagado) * 10) / 10}%`);
-    if (disponible > 0) parts.push(`Disponible ${Math.round(pct(disponible) * 10) / 10}%`);
+    if (revisando > 0) parts.push(`Revisando ${revisando} tickets`);
+    if (pagado > 0) parts.push(`Pagado ${pagado} tickets`);
+    if (disponible > 0) parts.push(`Disponible ${disponible} tickets`);
     return parts.length ? `Distribución: ${parts.join(', ')}` : 'Sin datos de distribución';
   });
 
@@ -155,6 +173,11 @@ export class OrdersComponent implements OnInit {
   readonly orderPendingDelete = signal<Order | null>(null);
   readonly deleteConfirmOpen = signal(false);
   readonly deleting = signal(false);
+
+  /** IDs seleccionados para eliminación masiva (solo admin). */
+  readonly selectedOrderIds = signal<readonly number[]>([]);
+  readonly bulkDeleteConfirmOpen = signal(false);
+  readonly bulkDeleting = signal(false);
 
   /** Vista previa del comprobante desde el listado (imagen o PDF en iframe). */
   readonly voucherPreviewOpen = signal(false);
@@ -195,12 +218,32 @@ export class OrdersComponent implements OnInit {
   readonly deleteConfirmMessage = computed(() => {
     const o = this.orderPendingDelete() ?? this.orderDetail();
     if (!o) return '';
-    const st = String(o.status ?? '').trim().toLowerCase();
-    const release =
-      st === 'confirmed' || st === 'cancelled'
-        ? ' Se liberan los boletos asociados.'
+    return `¿Eliminar definitivamente el pedido #${o.id} (${o.customer_name})? Esta acción no se puede deshacer.`;
+  });
+
+  readonly bulkDeleteConfirmMessage = computed(() => {
+    const n = this.selectedOrderIds().length;
+    if (n <= 0) return '';
+    const batches = Math.ceil(n / ORDERS_BULK_DELETE_MAX_IDS);
+    const batchNote =
+      batches > 1
+        ? ` Se enviarán ${batches} solicitudes al servidor (máximo ${ORDERS_BULK_DELETE_MAX_IDS} pedidos por solicitud).`
         : '';
-    return `¿Eliminar definitivamente el pedido #${o.id} (${o.customer_name})? Solo los administradores pueden eliminar pedidos en estado cancelado o pagado.${release} Esta acción no se puede deshacer.`;
+    return `¿Eliminar definitivamente ${n} pedido(s) seleccionado(s)?${batchNote} Esta acción no se puede deshacer.`;
+  });
+
+  /** Estado del checkbox “seleccionar visibles” (lista filtrada localmente). */
+  readonly selectAllVisibleState = computed<'all' | 'some' | 'none'>(() => {
+    const visible = this.visibleOrders();
+    if (!visible.length) return 'none';
+    const sel = new Set(this.selectedOrderIds());
+    let c = 0;
+    for (const o of visible) {
+      if (sel.has(o.id)) c += 1;
+    }
+    if (c === 0) return 'none';
+    if (c === visible.length) return 'all';
+    return 'some';
   });
 
   constructor(
@@ -237,6 +280,7 @@ export class OrdersComponent implements OnInit {
   ngOnInit(): void {
     this.refreshStatusCounts();
     this.reloadFromStart();
+    if (this.isAdmin()) this.loadOrderBlockStatus();
   }
 
   /** Conteos globales (chart admin) + badges de pestañas. */
@@ -247,10 +291,13 @@ export class OrdersComponent implements OnInit {
       .pipe(
         catchError(() =>
           of({
+            raffle_id: null,
             total_orders: 0,
-            pending: 0,
-            confirmed: 0,
-            cancelled: 0,
+            pending_orders: 0,
+            confirmed_orders: 0,
+            cancelled_orders: 0,
+            pending_tickets: 0,
+            confirmed_tickets: 0,
             available: 0,
           }),
         ),
@@ -261,27 +308,33 @@ export class OrdersComponent implements OnInit {
       )
       .subscribe({
         next: (res) => {
-          const pending = Number(res.pending ?? 0) || 0;
-          const confirmed = Number(res.confirmed ?? 0) || 0;
+          const pendingOrders = Number(res.pending_orders ?? 0) || 0;
+          const confirmedOrders = Number(res.confirmed_orders ?? 0) || 0;
+          const cancelledOrders = Number(res.cancelled_orders ?? 0) || 0;
+
+          const pendingTickets = Number(res.pending_tickets ?? 0) || 0;
+          const confirmedTickets = Number(res.confirmed_tickets ?? 0) || 0;
           const available = Number(res.available ?? 0) || 0;
-          const cancelled = Number(res.cancelled ?? 0) || 0;
           const totalOrders = Number(res.total_orders ?? 0) || 0;
 
           this.totalOrders.set(Math.max(0, totalOrders));
-          this.countRevisando.set(pending);
-          this.countPagado.set(confirmed);
+          this.pendingOrders.set(Math.max(0, pendingOrders));
+          this.confirmedOrders.set(Math.max(0, confirmedOrders));
+          this.cancelledOrders.set(Math.max(0, cancelledOrders));
+
+          this.countRevisando.set(Math.max(0, pendingTickets));
+          this.countPagado.set(Math.max(0, confirmedTickets));
           this.availableTickets.set(available);
-          this.countCancelado.set(cancelled);
-          this.chartDonutGrand.set(Math.max(0, pending + confirmed + available));
+          this.chartDonutGrand.set(Math.max(0, pendingTickets + confirmedTickets + available));
         },
       });
   }
 
   statusTabBadgeCount(filterValue: string): number {
     if (filterValue === '') return this.totalOrders();
-    if (filterValue === 'pending_validation') return this.countRevisando();
-    if (filterValue === 'confirmed') return this.countPagado();
-    if (filterValue === 'cancelled') return this.countCancelado();
+    if (filterValue === 'pending_validation') return this.pendingOrders();
+    if (filterValue === 'confirmed') return this.confirmedOrders();
+    if (filterValue === 'cancelled') return this.cancelledOrders();
     return 0;
   }
 
@@ -321,6 +374,7 @@ export class OrdersComponent implements OnInit {
   /** Primera página (o tras cambiar filtro / recargar). Si `refreshStats`, actualiza conteos del gráfico y badges. */
   reloadFromStart(options?: { refreshStats?: boolean }): void {
     this.listRequestGeneration += 1;
+    this.clearBulkSelection();
     const gen = this.listRequestGeneration;
     this.loading.set(true);
     this.loadingMore.set(false);
@@ -589,11 +643,133 @@ export class OrdersComponent implements OnInit {
     return this.orderDetail()?.status === 'pending_validation';
   }
 
-  /** Solo administradores; el API permite DELETE cuando el pedido está `cancelled` o `confirmed`. */
+  /**
+   * Eliminar uno a uno (DELETE unitario): solo admin y estados que el API suele aceptar.
+   * La eliminación masiva (`bulk-delete`) admite cualquier estado según el servidor.
+   */
   canDeleteOrder(order: Order | null | undefined): boolean {
     if (!this.isAdmin() || !order) return false;
     const s = String(order.status ?? '').trim().toLowerCase();
     return s === 'cancelled' || s === 'confirmed';
+  }
+
+  ordersTableColspan(): number {
+    return this.isAdmin() ? 11 : 10;
+  }
+
+  ordersMobileColspan(): number {
+    return this.isAdmin() ? 6 : 5;
+  }
+
+  clearBulkSelection(): void {
+    this.selectedOrderIds.set([]);
+  }
+
+  isOrderSelected(id: number): boolean {
+    return this.selectedOrderIds().includes(id);
+  }
+
+  toggleOrderSelected(id: number, checked: boolean): void {
+    if (!this.isAdmin()) return;
+    const set = new Set(this.selectedOrderIds());
+    if (checked) set.add(id);
+    else set.delete(id);
+    this.selectedOrderIds.set([...set].sort((a, b) => a - b));
+  }
+
+  onToggleSelectAllVisible(checked: boolean): void {
+    if (!this.isAdmin()) return;
+    const ids = this.visibleOrders().map((o) => o.id);
+    const set = new Set(this.selectedOrderIds());
+    if (checked) for (const id of ids) set.add(id);
+    else for (const id of ids) set.delete(id);
+    this.selectedOrderIds.set([...set].sort((a, b) => a - b));
+  }
+
+  /** Móvil: mismo efecto que el checkbox de cabecera, accesible desde la barra de herramientas. */
+  toolbarToggleSelectAllVisible(): void {
+    if (!this.isAdmin()) return;
+    this.onToggleSelectAllVisible(this.selectAllVisibleState() !== 'all');
+  }
+
+  openBulkDeleteConfirm(): void {
+    if (!this.isAdmin() || this.selectedOrderIds().length === 0) return;
+    if (this.bulkDeleting() || this.deleting()) return;
+    this.bulkDeleteConfirmOpen.set(true);
+  }
+
+  closeBulkDeleteConfirm(): void {
+    if (this.bulkDeleting()) return;
+    this.bulkDeleteConfirmOpen.set(false);
+  }
+
+  confirmBulkDelete(): void {
+    if (!this.isAdmin()) {
+      this.closeBulkDeleteConfirm();
+      this.toast.error('Solo los administradores pueden eliminar pedidos.');
+      return;
+    }
+    const ids = [...this.selectedOrderIds()];
+    if (!ids.length) {
+      this.closeBulkDeleteConfirm();
+      return;
+    }
+    const chunks: number[][] = [];
+    for (let i = 0; i < ids.length; i += ORDERS_BULK_DELETE_MAX_IDS) {
+      chunks.push(ids.slice(i, i + ORDERS_BULK_DELETE_MAX_IDS));
+    }
+    this.bulkDeleting.set(true);
+    from(chunks)
+      .pipe(
+        concatMap((chunk) => this.ordersService.bulkDeleteOrders(chunk)),
+        toArray(),
+        finalize(() => this.bulkDeleting.set(false)),
+      )
+      .subscribe({
+        next: (responses) => {
+          let deletedCount = 0;
+          const allDeleted: number[] = [];
+          const skipped: BulkOrderDeleteSkipped[] = [];
+          for (const r of responses) {
+            deletedCount += Number(r.deleted_count ?? 0) || 0;
+            if (Array.isArray(r.deleted)) allDeleted.push(...r.deleted);
+            if (Array.isArray(r.skipped)) skipped.push(...r.skipped);
+          }
+          const skipPreview =
+            skipped.length > 0
+              ? skipped
+                  .slice(0, 3)
+                  .map((s) => `#${s.id}: ${s.reason}`)
+                  .join(' · ')
+              : '';
+          const moreSkipped = skipped.length > 3 ? ` (+${skipped.length - 3} más)` : '';
+          this.toast.success(
+            skipped.length
+              ? `Eliminados: ${deletedCount}. Omitidos: ${skipped.length}.${skipPreview ? ` ${skipPreview}${moreSkipped}` : ''}`
+              : `Eliminados: ${deletedCount} pedido(s).`,
+          );
+          this.bulkDeleteConfirmOpen.set(false);
+          this.clearBulkSelection();
+          const openId = this.orderDetail()?.id;
+          if (openId != null && allDeleted.includes(openId)) {
+            this.detailOpen.set(false);
+            this.orderDetail.set(null);
+            this.detailError.set(null);
+            this.reviewNotes.setValue('');
+            this.rejectConfirmOpen.set(false);
+            void this.router.navigate(['/dashboard'], {
+              queryParams: { view: 'orders', orderId: null },
+              replaceUrl: true,
+            });
+          }
+          this.reloadFromStart({ refreshStats: true });
+        },
+        error: (err) => {
+          this.toast.error(
+            String(err?.error?.message || err?.error?.detail || 'No se pudo eliminar en bloque.'),
+          );
+        },
+      });
   }
 
   private static userIsAdmin(u: LoginUser | null): boolean {
@@ -610,7 +786,7 @@ export class OrdersComponent implements OnInit {
     if (!this.isAdmin()) return;
     if (this.reviewing() || this.deleting()) return;
     const o = order ?? this.orderDetail();
-    if (!this.canDeleteOrder(o)) return;
+    if (!o || !this.canDeleteOrder(o)) return;
     this.orderPendingDelete.set(order ?? null);
     this.deleteConfirmOpen.set(true);
   }
@@ -710,6 +886,55 @@ export class OrdersComponent implements OnInit {
           );
           this.detailError.set(msg);
           this.toast.error(msg);
+        },
+      });
+  }
+
+  // ── Bloqueo de órdenes públicas ──────────────────────────────
+
+  /** Carga el estado actual del bloqueo desde el API. */
+  loadOrderBlockStatus(): void {
+    if (!this.isAdmin()) return;
+    this.ordersBlockLoading.set(true);
+    this.ordersService
+      .getOrderBlock()
+      .pipe(
+        catchError(() => {
+          this.toast.error('No se pudo leer el estado de bloqueo de órdenes.');
+          return of({ blocked: this.ordersBlocked() });
+        }),
+        finalize(() => this.ordersBlockLoading.set(false)),
+      )
+      .subscribe((res) => this.ordersBlocked.set(!!res.blocked));
+  }
+
+  /** Alterna el bloqueo de órdenes públicas. */
+  toggleOrderBlock(): void {
+    if (!this.isAdmin()) {
+      this.toast.error('Solo los administradores pueden cambiar el bloqueo de órdenes públicas.');
+      return;
+    }
+    if (this.ordersBlockSaving()) return;
+    const newValue = !this.ordersBlocked();
+    this.ordersBlockSaving.set(true);
+    this.ordersService
+      .setOrderBlock(newValue)
+      .pipe(finalize(() => this.ordersBlockSaving.set(false)))
+      .subscribe({
+        next: (res) => {
+          this.ordersBlocked.set(!!res.blocked);
+          this.toast.success(
+            res.blocked
+              ? 'Órdenes públicas bloqueadas — los clientes no podrán comprar.'
+              : 'Órdenes públicas desbloqueadas — los clientes pueden comprar.',
+          );
+        },
+        error: (err) => {
+          // Revertir localmente al estado anterior
+          this.ordersBlocked.set(!newValue);
+          this.toast.error(
+            String(err?.error?.message || err?.error?.detail || 'No se pudo cambiar el bloqueo de órdenes.'),
+          );
         },
       });
   }

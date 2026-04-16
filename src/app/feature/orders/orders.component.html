@@ -3,6 +3,35 @@
     <h1>Órdenes</h1>
     <p>Compras de boletos y validación de pagos</p>
   </div>
+  @if (isAdmin()) {
+    <div class="order-block-toggle" [class.order-block-toggle--blocked]="ordersBlocked()">
+      <div class="order-block-toggle__info">
+        <div class="order-block-toggle__header">
+          <mat-icon class="order-block-toggle__icon" aria-hidden="true">
+            {{ ordersBlocked() ? 'lock' : 'lock_open' }}
+          </mat-icon>
+          <span class="order-block-toggle__label">
+            {{ ordersBlocked() ? 'Órdenes bloqueadas' : 'Órdenes abiertas' }}
+          </span>
+          @if (ordersBlockLoading() || ordersBlockSaving()) {
+            <app-spinner [size]="14" [stroke]="2" label="Procesando" />
+          }
+        </div>
+        <span class="order-block-toggle__sub">
+          {{ ordersBlocked()
+            ? 'Los clientes no pueden crear órdenes ni subir comprobantes.'
+            : 'Los clientes pueden comprar boletos y subir comprobantes.' }}
+        </span>
+      </div>
+      <mat-slide-toggle
+        [checked]="ordersBlocked()"
+        [disabled]="ordersBlockLoading() || ordersBlockSaving()"
+        (change)="toggleOrderBlock()"
+        color="warn"
+        aria-label="Bloquear órdenes públicas"
+      />
+    </div>
+  }
 </div>
 
 @if (error()) {
@@ -44,8 +73,7 @@
                 <span class="orders-chart-legend__swatch" [style.background]="row.color"></span>
                 <span class="orders-chart-legend__label">{{ row.label }}</span>
                 <span class="orders-chart-legend__meta">
-                  <span class="orders-chart-legend__pct">{{ row.pct | number: '1.1-1' }}%</span>
-                  <span class="orders-chart-legend__n">({{ row.n | number: '1.0-0' }})</span>
+                  <span class="orders-chart-legend__n">{{ row.n | number: '1.0-0' }}</span>
                 </span>
               </li>
             }
@@ -55,7 +83,7 @@
     </div>
 
     <div class="orders-insights__tabs">
-      <span class="orders-insights__title orders-insights__title--tabs">Estado del listado</span>
+      <span class="orders-insights__title orders-insights__title--tabs">Filtro de ordenes</span>
       <div class="status-segment-scroll">
         <div class="status-segment" role="tablist" aria-label="Filtrar pedidos por estado">
           @for (tab of statusTabs; track tab.filterValue) {
@@ -110,14 +138,71 @@
           Recargar
         }
       </button>
+      @if (isAdmin()) {
+        <div class="orders-toolbar-bulk-mobile">
+          <button
+            type="button"
+            class="btn btn-ghost orders-toolbar-bulk-mobile__btn"
+            (click)="toolbarToggleSelectAllVisible()"
+            [disabled]="loading() || bulkDeleting() || deleting() || visibleOrders().length === 0"
+            [attr.aria-label]="
+              selectAllVisibleState() === 'all'
+                ? 'Desmarcar todos los pedidos visibles'
+                : 'Seleccionar todos los pedidos visibles'
+            "
+          >
+            @if (selectAllVisibleState() === 'all') {
+              Desmarcar lista
+            } @else {
+              Seleccionar visibles ({{ visibleOrders().length }})
+            }
+          </button>
+        </div>
+      }
     </div>
   </div>
+
+  @if (isAdmin() && selectedOrderIds().length > 0) {
+    <div class="orders-bulk-bar" role="region" aria-label="Eliminación masiva de pedidos">
+      <span class="orders-bulk-bar__count">{{ selectedOrderIds().length }} pedido(s) seleccionado(s)</span>
+      <div class="orders-bulk-bar__actions">
+        <button
+          type="button"
+          class="btn btn-ghost"
+          (click)="clearBulkSelection()"
+          [disabled]="bulkDeleting() || deleting()"
+        >
+          Quitar selección
+        </button>
+        <button
+          type="button"
+          class="btn btn-danger"
+          (click)="openBulkDeleteConfirm()"
+          [disabled]="bulkDeleting() || deleting()"
+        >
+          Eliminar en bloque
+        </button>
+      </div>
+    </div>
+  }
 
   <div class="orders-infinite-wrap" (scroll)="onOrdersScroll($event)">
     <div class="table-wrap orders-table-desktop">
       <table class="table">
         <thead>
           <tr>
+            @if (isAdmin()) {
+              <th class="orders-col-check" scope="col">
+                <mat-checkbox
+                  [checked]="selectAllVisibleState() === 'all'"
+                  [indeterminate]="selectAllVisibleState() === 'some'"
+                  (change)="onToggleSelectAllVisible($event.checked)"
+                  [disabled]="loading() || bulkDeleting() || deleting()"
+                  aria-label="Seleccionar o anular todos los pedidos visibles en la lista"
+                  (click)="$event.stopPropagation()"
+                />
+              </th>
+            }
             <th>ID</th>
             <th>Cliente</th>
             <th>Cédula</th>
@@ -133,18 +218,29 @@
         <tbody>
           @if (loading() && orders().length === 0) {
             <tr>
-              <td colspan="10" class="loading-row">
+              <td [attr.colspan]="ordersTableColspan()" class="loading-row">
                 <app-spinner [size]="28" [stroke]="3" label="Cargando pedidos" />
                 <span>Cargando pedidos…</span>
               </td>
             </tr>
           } @else if (!loading() && visibleOrders().length === 0) {
             <tr>
-              <td colspan="10" class="empty">No hay pedidos para mostrar.</td>
+              <td [attr.colspan]="ordersTableColspan()" class="empty">No hay pedidos para mostrar.</td>
             </tr>
           } @else {
             @for (order of visibleOrders(); track order.id) {
               <tr class="order-table-row--clickable" (click)="openDetail(order)">
+                @if (isAdmin()) {
+                  <td class="orders-col-check" (click)="$event.stopPropagation()">
+                    <mat-checkbox
+                      [checked]="isOrderSelected(order.id)"
+                      (change)="toggleOrderSelected(order.id, $event.checked)"
+                      [disabled]="bulkDeleting() || deleting()"
+                      [attr.aria-label]="'Seleccionar pedido ' + order.id"
+                      (click)="$event.stopPropagation()"
+                    />
+                  </td>
+                }
                 <td>{{ order.id }}</td>
                 <td>
                   <div class="cell-stack">
@@ -204,8 +300,8 @@
                         class="action-icon action-icon--delete"
                         (click)="openDeleteConfirm(order); $event.stopPropagation()"
                         [disabled]="reviewing() || deleting()"
-                        aria-label="Eliminar pedido (admin: cancelado o pagado)"
-                        title="Eliminar (admin: cancelado o pagado)"
+                        aria-label="Eliminar pedido"
+                        title="Eliminar"
                       >
                         <mat-icon aria-hidden="true">delete_outline</mat-icon>
                       </button>
@@ -223,6 +319,19 @@
       <table class="orders-table-mobile">
         <thead>
           <tr>
+            @if (isAdmin()) {
+              <th scope="col" class="orders-table-mobile__th orders-table-mobile__col-check">
+                <mat-checkbox
+                  class="orders-table-mobile__check-compact"
+                  [checked]="selectAllVisibleState() === 'all'"
+                  [indeterminate]="selectAllVisibleState() === 'some'"
+                  (change)="onToggleSelectAllVisible($event.checked)"
+                  [disabled]="loading() || bulkDeleting() || deleting()"
+                  aria-label="Seleccionar o anular todos los pedidos visibles"
+                  (click)="$event.stopPropagation()"
+                />
+              </th>
+            }
             <th scope="col" class="orders-table-mobile__th orders-table-mobile__col-id">ID</th>
             <th scope="col" class="orders-table-mobile__th orders-table-mobile__col-cliente">Cliente</th>
             <th scope="col" class="orders-table-mobile__th orders-table-mobile__col-cantidad">Cant.</th>
@@ -233,18 +342,30 @@
         <tbody>
           @if (loading() && orders().length === 0) {
             <tr>
-              <td colspan="5" class="orders-table-mobile__loading">
+              <td [attr.colspan]="ordersMobileColspan()" class="orders-table-mobile__loading">
                 <app-spinner [size]="28" [stroke]="3" label="Cargando pedidos" />
                 <span>Cargando pedidos…</span>
               </td>
             </tr>
           } @else if (!loading() && visibleOrders().length === 0) {
             <tr>
-              <td colspan="5" class="orders-table-mobile__empty">No hay pedidos para mostrar.</td>
+              <td [attr.colspan]="ordersMobileColspan()" class="orders-table-mobile__empty">No hay pedidos para mostrar.</td>
             </tr>
           } @else {
             @for (order of visibleOrders(); track order.id) {
               <tr class="order-table-row--clickable" (click)="openDetail(order)">
+                @if (isAdmin()) {
+                  <td class="orders-table-mobile__td orders-table-mobile__col-check" (click)="$event.stopPropagation()">
+                    <mat-checkbox
+                      class="orders-table-mobile__check-compact"
+                      [checked]="isOrderSelected(order.id)"
+                      (change)="toggleOrderSelected(order.id, $event.checked)"
+                      [disabled]="bulkDeleting() || deleting()"
+                      [attr.aria-label]="'Seleccionar pedido ' + order.id"
+                      (click)="$event.stopPropagation()"
+                    />
+                  </td>
+                }
                 <td class="orders-table-mobile__td orders-table-mobile__col-id">{{ order.id }}</td>
                 <td class="orders-table-mobile__td orders-table-mobile__col-cliente">
                   <span class="orders-table-mobile__cliente" [attr.title]="order.customer_name">{{
@@ -276,8 +397,8 @@
                         class="action-icon action-icon--delete action-icon--mobile-table"
                         (click)="openDeleteConfirm(order); $event.stopPropagation()"
                         [disabled]="reviewing() || deleting()"
-                        aria-label="Eliminar pedido (admin: cancelado o pagado)"
-                        title="Eliminar (admin)"
+                        aria-label="Eliminar pedido"
+                        title="Eliminar"
                       >
                         <mat-icon aria-hidden="true">delete_outline</mat-icon>
                       </button>
@@ -614,8 +735,8 @@
               class="detail-footer-btn detail-footer-btn--delete"
               (click)="openDeleteConfirm()"
               [disabled]="reviewing() || deleting()"
-              title="Eliminar pedido (admin: cancelado o pagado)"
-              aria-label="Eliminar pedido (admin: cancelado o pagado)"
+              title="Eliminar pedido"
+              aria-label="Eliminar pedido"
             >
               <mat-icon aria-hidden="true">highlight_off</mat-icon>
               <span>Eliminar</span>
@@ -682,4 +803,15 @@
   cancelText="Cancelar"
   (confirm)="confirmDelete()"
   (cancel)="closeDeleteConfirm()"
+/>
+
+<app-confirm-dialog
+  [open]="bulkDeleteConfirmOpen()"
+  [loading]="bulkDeleting()"
+  title="Eliminar pedidos en bloque"
+  [message]="bulkDeleteConfirmMessage()"
+  confirmText="Sí, eliminar"
+  cancelText="Cancelar"
+  (confirm)="confirmBulkDelete()"
+  (cancel)="closeBulkDeleteConfirm()"
 />

@@ -85,6 +85,21 @@ export interface OrderReviewPayload {
   admin_notes?: string | null;
 }
 
+/** Máximo de IDs por `POST /api/admin/orders/bulk-delete`. */
+export const ORDERS_BULK_DELETE_MAX_IDS = 200;
+
+export interface BulkOrderDeleteSkipped {
+  id: number;
+  reason: string;
+}
+
+export interface BulkOrdersDeleteResponse {
+  deleted: number[];
+  deleted_count: number;
+  skipped: BulkOrderDeleteSkipped[];
+  skipped_count: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class OrdersService {
   constructor(
@@ -127,12 +142,44 @@ export class OrdersService {
   }
 
   /**
-   * Solo permitido en el servidor si el pedido está `cancelled`.
+   * Eliminar un pedido (admin).
    * DELETE /api/admin/orders/{order}
    */
   deleteOrder(id: number): Observable<void> {
     return this.http.delete<void>(`${environment.apiBaseUrl}/api/admin/orders/${id}`, {
       headers: this.authHeaders(),
     });
+  }
+
+  /**
+   * Eliminación masiva (admin). Máximo {@link ORDERS_BULK_DELETE_MAX_IDS} IDs por solicitud;
+   * el cliente puede partir listas mayores en varias llamadas.
+   * POST /api/admin/orders/bulk-delete
+   */
+  bulkDeleteOrders(orderIds: number[]): Observable<BulkOrdersDeleteResponse> {
+    return this.http.post<BulkOrdersDeleteResponse>(
+      `${environment.apiBaseUrl}/api/admin/orders/bulk-delete`,
+      { order_ids: orderIds },
+      { headers: this.authHeaders() },
+    );
+  }
+
+  // ── Bloqueo de órdenes públicas ──────────────────────────────
+
+  /** GET /api/admin/security/order-block → { blocked: boolean } */
+  getOrderBlock(): Observable<{ blocked: boolean }> {
+    return this.http.get<{ blocked: boolean }>(
+      `${environment.apiBaseUrl}/api/admin/security/order-block`,
+      { headers: this.authHeaders() },
+    );
+  }
+
+  /** POST /api/admin/security/order-block → { blocked: boolean } */
+  setOrderBlock(blocked: boolean): Observable<{ blocked: boolean }> {
+    return this.http.post<{ blocked: boolean }>(
+      `${environment.apiBaseUrl}/api/admin/security/order-block`,
+      { blocked },
+      { headers: this.authHeaders() },
+    );
   }
 }

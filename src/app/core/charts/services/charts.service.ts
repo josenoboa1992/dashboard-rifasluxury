@@ -6,10 +6,13 @@ import { environment } from '../../../../environments/environment';
 import { AuthService } from '../../auth/services/auth.service';
 
 export interface OrdersDistributionChartResponse {
+  raffle_id: number | null;
   total_orders: number;
-  pending: number;
-  confirmed: number;
-  cancelled: number;
+  pending_orders: number;
+  confirmed_orders: number;
+  cancelled_orders: number;
+  pending_tickets: number;
+  confirmed_tickets: number;
   /** Cupo disponible total (suma pool restante de todas las rifas). */
   available: number;
   [key: string]: unknown;
