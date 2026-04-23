@@ -190,6 +190,26 @@
           <span class="ni-label">Números</span>
         </a>
       </div>
+      @if (isAdmin()) {
+        <div class="nav-section">
+          <div class="nav-label">Seguridad</div>
+          <a
+            class="nav-item"
+            routerLink="/dashboard"
+            [queryParams]="{ view: 'blocked-ips' }"
+            [replaceUrl]="true"
+            [class.active]="currentView() === 'blocked-ips'"
+            [attr.aria-current]="currentView() === 'blocked-ips' ? 'page' : null"
+            title="IPs bloqueadas en checkout"
+          >
+            <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" stroke-linejoin="round" />
+              <path d="M9 12h6" stroke-linecap="round" />
+            </svg>
+            <span class="ni-label">IPs bloqueadas</span>
+          </a>
+        </div>
+      }
     </nav>
     <div class="sidebar-footer">
       <div class="nav-section">
@@ -542,6 +562,8 @@
       </div>
       } @else if (currentView() === 'users' && isAdmin()) {
       <app-users />
+      } @else if (currentView() === 'blocked-ips' && isAdmin()) {
+      <app-blocked-ips />
       } @else if (currentView() === 'participants') {
       <app-participants />
       } @else if (currentView() === 'categories') {

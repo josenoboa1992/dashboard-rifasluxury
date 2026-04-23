@@ -111,7 +111,7 @@
 
   <div class="toolbar">
     <div class="total">
-      Total : {{ total() }} | Cargados: {{ orders().length }}
+      Total : {{ total() }} | Cargados: {{ ordersFlat().length }}
     </div>
     <div class="toolbar-actions">
       <div class="search">
@@ -206,6 +206,7 @@
             <th>ID</th>
             <th>Cliente</th>
             <th>Cédula</th>
+            <th>Banco</th>
             <th>Rifa</th>
             <th>Cantidad</th>
             <th>Total</th>
@@ -216,7 +217,7 @@
           </tr>
         </thead>
         <tbody>
-          @if (loading() && orders().length === 0) {
+          @if (loading() && ordersFlat().length === 0) {
             <tr>
               <td [attr.colspan]="ordersTableColspan()" class="loading-row">
                 <app-spinner [size]="28" [stroke]="3" label="Cargando pedidos" />
@@ -228,7 +229,13 @@
               <td [attr.colspan]="ordersTableColspan()" class="empty">No hay pedidos para mostrar.</td>
             </tr>
           } @else {
-            @for (order of visibleOrders(); track order.id) {
+            @for (group of visibleOrderGroups(); track group.bank_name) {
+              <tr class="orders-bank-group-row">
+                <td [attr.colspan]="ordersTableColspan()" class="orders-bank-group-cell">
+                  <span class="orders-bank-group-label">{{ group.bank_name }}</span>
+                </td>
+              </tr>
+              @for (order of group.orders; track order.id) {
               <tr class="order-table-row--clickable" (click)="openDetail(order)">
                 @if (isAdmin()) {
                   <td class="orders-col-check" (click)="$event.stopPropagation()">
@@ -249,6 +256,7 @@
                   </div>
                 </td>
                 <td>{{ (order.cedula | drCedula) || '—' }}</td>
+                <td>{{ orderBankDisplay(order, group.bank_name) }}</td>
                 <td>{{ order.raffle?.title ?? '—' }}</td>
                 <td>{{ ticketsCount(order) ?? '—' }}</td>
                 <td class="nowrap">{{ (order.total_amount | formatMoney) || '—' }}</td>
@@ -309,6 +317,7 @@
                   </div>
                 </td>
               </tr>
+              }
             }
           }
         </tbody>
@@ -340,7 +349,7 @@
           </tr>
         </thead>
         <tbody>
-          @if (loading() && orders().length === 0) {
+          @if (loading() && ordersFlat().length === 0) {
             <tr>
               <td [attr.colspan]="ordersMobileColspan()" class="orders-table-mobile__loading">
                 <app-spinner [size]="28" [stroke]="3" label="Cargando pedidos" />
@@ -352,7 +361,13 @@
               <td [attr.colspan]="ordersMobileColspan()" class="orders-table-mobile__empty">No hay pedidos para mostrar.</td>
             </tr>
           } @else {
-            @for (order of visibleOrders(); track order.id) {
+            @for (group of visibleOrderGroups(); track group.bank_name) {
+              <tr class="orders-bank-group-row orders-bank-group-row--mobile">
+                <td [attr.colspan]="ordersMobileColspan()" class="orders-bank-group-cell">
+                  <span class="orders-bank-group-label">{{ group.bank_name }}</span>
+                </td>
+              </tr>
+              @for (order of group.orders; track order.id) {
               <tr class="order-table-row--clickable" (click)="openDetail(order)">
                 @if (isAdmin()) {
                   <td class="orders-table-mobile__td orders-table-mobile__col-check" (click)="$event.stopPropagation()">
@@ -371,6 +386,9 @@
                   <span class="orders-table-mobile__cliente" [attr.title]="order.customer_name">{{
                     order.customer_name
                   }}</span>
+                  @if (orderBankDisplay(order, group.bank_name) !== '—') {
+                    <span class="orders-table-mobile__bank">{{ orderBankDisplay(order, group.bank_name) }}</span>
+                  }
                 </td>
                 <td class="orders-table-mobile__td orders-table-mobile__col-cantidad">
                   <span class="orders-table-mobile__qty">{{ ticketsCount(order) ?? '—' }}</span>
@@ -406,6 +424,7 @@
                   </div>
                 </td>
               </tr>
+              }
             }
           }
         </tbody>
@@ -418,10 +437,10 @@
         Cargando más…
       </div>
     }
-    @if (!loading() && !loadingMore() && hasMore() && orders().length > 0) {
+    @if (!loading() && !loadingMore() && hasMore() && ordersFlat().length > 0) {
       <p class="infinite-hint">Desplázate hacia abajo para cargar más.</p>
     }
-    @if (!hasMore() && orders().length > 0 && total() > 0) {
+    @if (!hasMore() && ordersFlat().length > 0 && total() > 0) {
       <p class="infinite-hint infinite-hint--done">No hay más pedidos en este filtro.</p>
     }
   </div>
@@ -559,7 +578,7 @@
             <div class="detail-kv__row">
               <span class="detail-kv__k">Email</span>
               <span class="detail-kv__v">
-                @if (detail.email.trim()) {
+                @if ((detail.email ?? '').trim()) {
                   <a class="detail-kv__mailto" [href]="'mailto:' + detail.email">{{ detail.email }}</a>
                 } @else {
                   —
@@ -570,6 +589,12 @@
               <span class="detail-kv__k">Rifa</span>
               <span class="detail-kv__v">{{ detail.raffle?.title ?? '—' }}</span>
             </div>
+            @if ((detail.bank_name ?? '').trim()) {
+              <div class="detail-kv__row">
+                <span class="detail-kv__k">Banco</span>
+                <span class="detail-kv__v">{{ detail.bank_name }}</span>
+              </div>
+            }
             <div class="detail-kv__row">
               <span class="detail-kv__k">Cédula</span>
               <span class="detail-kv__v">{{ (detail.cedula | drCedula) || '—' }}</span>
@@ -587,16 +612,16 @@
           <div class="detail-status-strip" role="group" aria-label="Estado del pedido (referencia visual)">
             <span
               class="detail-status-chip"
-              [class.detail-status-chip--active]="detail.status === 'pending_validation'"
+              [class.detail-status-chip--active]="isOrderStatus(detail, 'pending_validation')"
             >
               <span class="detail-status-chip__dot detail-status-chip__dot--warn"></span>
               Revisando
             </span>
             <span
               class="detail-status-chip"
-              [class.detail-status-chip--active]="detail.status === 'confirmed'"
+              [class.detail-status-chip--active]="isOrderStatus(detail, 'confirmed')"
             >
-              @if (detail.status === 'confirmed') {
+              @if (isOrderStatus(detail, 'confirmed')) {
                 <mat-icon class="detail-status-chip__icon" aria-hidden="true">check_circle</mat-icon>
               } @else {
                 <span class="detail-status-chip__dot detail-status-chip__dot--ok"></span>
@@ -605,7 +630,7 @@
             </span>
             <span
               class="detail-status-chip"
-              [class.detail-status-chip--active]="detail.status === 'cancelled'"
+              [class.detail-status-chip--active]="isOrderStatus(detail, 'cancelled')"
             >
               <span class="detail-status-chip__dot detail-status-chip__dot--muted"></span>
               Cancelado
@@ -648,7 +673,7 @@
             @if (canReview()) {
               <mat-form-field appearance="outline" class="review-notes-field" subscriptSizing="dynamic">
                 <mat-label>Agregar notas</mat-label>
-                <textarea matInput rows="3" [formControl]="reviewNotes" placeholder="Opcional"></textarea>
+                <textarea matInput rows="3" [formControl]="reviewNotes"></textarea>
               </mat-form-field>
             } @else if (detail.admin_notes?.trim()) {
               <p class="detail-notes-card__body">{{ detail.admin_notes }}</p>

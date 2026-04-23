@@ -16,7 +16,11 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
               {{ cancelText }}
             </button>
             <button type="button" class="btn btn-danger" (click)="onConfirm()" [disabled]="loading">
-              @if (loading) { Eliminando... } @else { {{ confirmText }} }
+              @if (loading) {
+                {{ loadingConfirmText }}
+              } @else {
+                {{ confirmText }}
+              }
             </button>
           </div>
         </div>
@@ -89,6 +93,8 @@ export class ConfirmDialogComponent {
   @Input() message = 'Desea continuar con esta accion?';
   @Input() confirmText = 'Eliminar';
   @Input() cancelText = 'Cancelar';
+  /** Texto del botón de confirmación mientras `loading` es true. */
+  @Input() loadingConfirmText = 'Eliminando...';
 
   @Output() confirm = new EventEmitter<void>();
   @Output() cancel = new EventEmitter<void>();

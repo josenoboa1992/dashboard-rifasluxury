@@ -335,12 +335,33 @@ export class ParticipantsService {
       : new HttpHeaders();
   }
 
+  /** GET /api/participants?page=&per_page= */
   listParticipants(page: number = 1, perPage: number = 15): Observable<PaginatedParticipantsResponse> {
+    const params = new HttpParams().set('page', page).set('per_page', perPage);
+    return this.http
+      .get<PaginatedParticipantsResponse>(`${environment.apiBaseUrl}/api/participants`, {
+        headers: this.authHeaders(),
+        params,
+      })
+      .pipe(map(normalizePaginatedParticipantsResponse));
+  }
+
+  /**
+   * Búsqueda en servidor (nombre/email LIKE; si `q` es solo dígitos, también por id exacto).
+   * GET /api/participants/search?q=&page=&per_page=
+   */
+  searchParticipants(
+    q: string,
+    page: number = 1,
+    perPage: number = 15,
+  ): Observable<PaginatedParticipantsResponse> {
+    const trimmed = q.trim().slice(0, 255);
     const params = new HttpParams()
+      .set('q', trimmed)
       .set('page', page)
       .set('per_page', perPage);
     return this.http
-      .get<PaginatedParticipantsResponse>(`${environment.apiBaseUrl}/api/participants`, {
+      .get<PaginatedParticipantsResponse>(`${environment.apiBaseUrl}/api/participants/search`, {
         headers: this.authHeaders(),
         params,
       })

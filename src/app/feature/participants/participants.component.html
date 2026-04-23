@@ -15,14 +15,18 @@
 <section class="panel" aria-label="Listado de participantes">
   <div class="toolbar">
     <div class="total">
-      Total: {{ totalParticipants() }}
+      @if (searchTerm().trim()) {
+        Resultados de búsqueda: {{ totalParticipants() }}
+      } @else {
+        Total: {{ totalParticipants() }}
+      }
       <span class="range"> | Mostrando {{ fromItem() }}-{{ toItem() }} de {{ totalParticipants() }}</span>
     </div>
     <div class="toolbar-actions">
       <div class="search">
         <input
           type="text"
-          placeholder="Buscar por nombre, email, cédula..."
+          placeholder="Nombre, email o ID numérico…"
           [value]="searchTerm()"
           (input)="onSearchInput($any($event.target).value)"
         />
@@ -56,12 +60,22 @@
         </tr>
       </thead>
       <tbody>
-        @if (!participantsLoading() && visibleParticipants().length === 0) {
+        @if (participantsLoading() && participants().length === 0) {
           <tr>
-            <td colspan="8" class="empty">No hay participantes para mostrar.</td>
+            <td colspan="8" class="empty">Cargando…</td>
+          </tr>
+        } @else if (!participantsLoading() && participants().length === 0) {
+          <tr>
+            <td colspan="8" class="empty">
+              {{
+                searchTerm().trim()
+                  ? 'No hay participantes que coincidan con la búsqueda.'
+                  : 'No hay participantes para mostrar.'
+              }}
+            </td>
           </tr>
         } @else {
-          @for (participant of visibleParticipants(); track participant.id) {
+          @for (participant of participants(); track participant.id) {
             <tr>
               <td>{{ participant.id }}</td>
               <td>{{ participant.name }}</td>

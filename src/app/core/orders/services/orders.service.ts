@@ -49,12 +49,15 @@ export interface Order {
   customer_name: string;
   cedula: string;
   phone: string;
-  email: string;
+  /** Puede venir vacío o null desde el API en algunos pedidos. */
+  email: string | null;
   status: string;
   total_amount: string;
   /** Cantidad de boletos asociados (nuevo en el endpoint). */
   tickets_count?: number | null;
   bank_account_id: number | null;
+  /** Nombre del banco de la cuenta ligada, o "Otros" si no aplica (listado admin). */
+  bank_name?: string | null;
   payment_proof_path: string | null;
   payment_proof_image_id: number | null;
   validated_at: string | null;
@@ -69,15 +72,75 @@ export interface Order {
   [key: string]: unknown;
 }
 
+/** Grupo de pedidos en una página del listado admin, por banco. */
+export interface OrderBankGroup {
+  bank_name: string;
+  orders: Order[];
+}
+
 export interface PaginatedOrdersResponse {
   current_page: number;
-  data: Order[];
+  /** Respuesta nueva: pedidos agrupados por banco (misma paginación sobre órdenes). */
+  groups?: OrderBankGroup[];
+  /** Respuesta antigua: lista plana (compatibilidad). */
+  data?: Order[];
   from: number | null;
   last_page: number;
   per_page: number;
   to: number | null;
   total: number;
   [key: string]: unknown;
+}
+
+const OTROS_BANK_LABEL = 'Otros';
+
+/** Convierte la respuesta del GET admin en grupos; si solo viene `data`, un solo grupo. */
+export function orderGroupsFromPaginatedOrdersResponse(res: PaginatedOrdersResponse): OrderBankGroup[] {
+  const raw = res.groups;
+  if (Array.isArray(raw) && raw.length > 0) {
+    return raw.map((g) => ({
+      bank_name: String((g as OrderBankGroup).bank_name ?? '').trim() || OTROS_BANK_LABEL,
+      orders: Array.isArray((g as OrderBankGroup).orders) ? (g as OrderBankGroup).orders : [],
+    }));
+  }
+  const flat = res.data ?? [];
+  return flat.length > 0 ? [{ bank_name: 'Pedidos', orders: flat }] : [];
+}
+
+/** Lista plana de pedidos (p. ej. dashboard). */
+export function flattenOrderGroups(groups: OrderBankGroup[] | null | undefined): Order[] {
+  return (groups ?? []).flatMap((g) => g.orders ?? []);
+}
+
+/** Una sola lectura de la respuesta paginada admin → pedidos en orden de grupos. */
+export function ordersFlatFromPaginatedResponse(res: PaginatedOrdersResponse): Order[] {
+  return flattenOrderGroups(orderGroupsFromPaginatedOrdersResponse(res));
+}
+
+/** Une grupos al cargar más páginas (mismo banco acumula órdenes; sin duplicar id). */
+export function mergeOrderBankGroups(a: OrderBankGroup[], b: OrderBankGroup[]): OrderBankGroup[] {
+  const map = new Map<string, Order[]>();
+  const add = (bankName: string, orders: Order[]) => {
+    const key = String(bankName ?? '').trim() || OTROS_BANK_LABEL;
+    if (!map.has(key)) map.set(key, []);
+    const arr = map.get(key)!;
+    const ids = new Set(arr.map((x) => x.id));
+    for (const o of orders) {
+      if (!ids.has(o.id)) {
+        arr.push(o);
+        ids.add(o.id);
+      }
+    }
+  };
+  for (const g of a) add(g.bank_name, g.orders);
+  for (const g of b) add(g.bank_name, g.orders);
+  const keys = [...map.keys()].filter((k) => k !== OTROS_BANK_LABEL);
+  keys.sort((x, y) => x.localeCompare(y, 'es', { sensitivity: 'base' }));
+  const out: OrderBankGroup[] = keys.map((name) => ({ bank_name: name, orders: map.get(name)! }));
+  if (map.has(OTROS_BANK_LABEL)) {
+    out.push({ bank_name: OTROS_BANK_LABEL, orders: map.get(OTROS_BANK_LABEL)! });
+  }
+  return out;
 }
 
 export interface OrderReviewPayload {

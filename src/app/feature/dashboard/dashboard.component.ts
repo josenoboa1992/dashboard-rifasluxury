@@ -9,7 +9,12 @@ import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 import { LoginUser } from '../../core/auth/models/login-response.model';
 import { orderStatusLabelEs, roleLabelEs } from '../../core/helpers/ui-labels.es';
 import { AuthService } from '../../core/auth/services/auth.service';
-import { Order, OrdersService, PaginatedOrdersResponse } from '../../core/orders/services/orders.service';
+import {
+  Order,
+  OrdersService,
+  PaginatedOrdersResponse,
+  ordersFlatFromPaginatedResponse,
+} from '../../core/orders/services/orders.service';
 import { PaginatedParticipantsResponse, ParticipantsService } from '../../core/participants/services/participants.service';
 import { Raffle, RafflesService } from '../../core/raffles/services/raffles.service';
 import { FormatDateTimePipe } from '../../core/pipes/format-date-time.pipe';
@@ -26,6 +31,7 @@ import { WinnersComponent } from '../../feature/winners/winners.component';
 import { PlayedNumbersComponent } from '../../feature/played-numbers/played-numbers.component';
 import { RafflePrizesComponent } from '../../feature/raffle-prizes/raffle-prizes.component';
 import { ClientConsultationComponent } from '../../feature/client-consultation/client-consultation.component';
+import { BlockedIpsComponent } from '../../feature/blocked-ips/blocked-ips.component';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -52,6 +58,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
     PlayedNumbersComponent,
     RafflePrizesComponent,
     ClientConsultationComponent,
+    BlockedIpsComponent,
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css',
@@ -75,6 +82,7 @@ export class DashboardComponent {
     'numbers',
     'prizes',
     'consulta',
+    'blocked-ips',
   ]);
 
   private readonly router = inject(Router);
@@ -98,6 +106,7 @@ export class DashboardComponent {
     | 'numbers'
     | 'prizes'
     | 'consulta'
+    | 'blocked-ips'
   >('dashboard');
   readonly sidebarCollapsed = signal(false);
   /** Coincide con el breakpoint CSS (max-width: 899px): drawer móvil. */
@@ -198,7 +207,10 @@ export class DashboardComponent {
 
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       const v = params.get('view');
-      if (v === 'users' && !DashboardComponent.userIsAdmin(this.sessionUser())) {
+      if (
+        (v === 'users' || v === 'blocked-ips') &&
+        !DashboardComponent.userIsAdmin(this.sessionUser())
+      ) {
         void this.router.navigate(['/dashboard'], { replaceUrl: true });
         return;
       }
@@ -214,7 +226,8 @@ export class DashboardComponent {
             | 'winners'
             | 'numbers'
             | 'prizes'
-            | 'consulta',
+            | 'consulta'
+            | 'blocked-ips',
         );
       } else {
         this.currentView.set('dashboard');
@@ -233,6 +246,7 @@ export class DashboardComponent {
     const emptyOrders: PaginatedOrdersResponse = {
       current_page: 1,
       data: [],
+      groups: [],
       from: null,
       last_page: 1,
       per_page: 1,
@@ -283,7 +297,7 @@ export class DashboardComponent {
           participants,
           pendingVal,
           pendingPay,
-          recentOrders,
+          recentOrders: recentOrdersRes,
           raffles,
           confirmedOrdersTotal,
           cancelledOrdersTotal,
@@ -293,7 +307,7 @@ export class DashboardComponent {
           this.availableRafflesCount.set(DashboardComponent.countAvailableRaffles(raffles));
           this.confirmedOrdersTotal.set(confirmedOrdersTotal);
           this.cancelledOrdersTotal.set(cancelledOrdersTotal);
-          this.recentOrders.set(recentOrders.data ?? []);
+          this.recentOrders.set(ordersFlatFromPaginatedResponse(recentOrdersRes));
         },
         error: () => {
           this.statsError.set('No se pudieron cargar los datos del panel.');
@@ -395,10 +409,14 @@ export class DashboardComponent {
       | 'winners'
       | 'numbers'
       | 'prizes'
-      | 'consulta',
+      | 'consulta'
+      | 'blocked-ips',
     orderId?: number,
   ): void {
-    if (view === 'users' && !DashboardComponent.userIsAdmin(this.sessionUser())) {
+    if (
+      (view === 'users' || view === 'blocked-ips') &&
+      !DashboardComponent.userIsAdmin(this.sessionUser())
+    ) {
       view = 'dashboard';
     }
     this.currentView.set(view);

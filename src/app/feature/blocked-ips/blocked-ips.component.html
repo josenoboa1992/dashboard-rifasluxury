@@ -1,0 +1,174 @@
+<div class="page-head">
+  <div>
+    <h1>IPs bloqueadas</h1>
+    <p>Direcciones bloqueadas por el límite de pedidos en checkout; puedes quitar el bloqueo manualmente.</p>
+  </div>
+</div>
+
+@if (listError()) {
+  <div class="list-error" role="alert">{{ listError() }}</div>
+}
+
+<section class="panel" aria-label="Listado de IPs bloqueadas">
+  <div class="toolbar">
+    <div class="total">
+      @if (searchTerm().trim()) {
+        Resultados: {{ total() }}
+      } @else {
+        Total: {{ total() }}
+      }
+      <span class="range"> | Mostrando {{ fromItem() }}-{{ toItem() }} de {{ total() }}</span>
+    </div>
+    <div class="toolbar-actions">
+      <label class="per-page">
+        <span class="per-page-label">Por página</span>
+        <select
+          class="per-page-select"
+          [value]="perPage()"
+          (change)="onPerPageChange($any($event.target).value)"
+          [disabled]="loading()"
+        >
+          <option [value]="25">25</option>
+          <option [value]="50">50</option>
+          <option [value]="100">100</option>
+        </select>
+      </label>
+      <div class="search">
+        <input
+          type="text"
+          placeholder="Buscar por IP…"
+          [value]="searchTerm()"
+          (input)="onSearchInput($any($event.target).value)"
+          autocomplete="off"
+        />
+        @if (searchTerm().trim()) {
+          <button type="button" class="btn-inline" (click)="clearSearch()">Limpiar</button>
+        }
+      </div>
+      <button type="button" class="btn btn-ghost refresh" (click)="loadPage()" [disabled]="loading()">
+        @if (loading()) {
+          <app-spinner [size]="16" [stroke]="3" label="Cargando" />
+          Cargando...
+        } @else {
+          Recargar
+        }
+      </button>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>IP</th>
+          <th>Motivo</th>
+          <th>Registrado</th>
+          <th>Actualizado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (loading() && rows().length === 0) {
+          <tr>
+            <td colspan="6" class="empty">Cargando…</td>
+          </tr>
+        } @else if (!loading() && rows().length === 0) {
+          <tr>
+            <td colspan="6" class="empty">
+              {{
+                searchTerm().trim()
+                  ? 'No hay IPs que coincidan con la búsqueda.'
+                  : 'No hay IPs bloqueadas.'
+              }}
+            </td>
+          </tr>
+        } @else {
+          @for (row of rows(); track row.id) {
+            <tr>
+              <td>{{ row.id }}</td>
+              <td class="ip-cell">{{ row.ip_address }}</td>
+              <td class="reason-cell">{{ row.reason?.trim() ? row.reason : '—' }}</td>
+              <td>{{ row.created_at | formatDateTime }}</td>
+              <td>{{ row.updated_at | formatDateTime }}</td>
+              <td>
+                <button
+                  type="button"
+                  class="action-icon action-icon--edit"
+                  (click)="openUnblockConfirm(row)"
+                  [disabled]="unblockingIp() === row.ip_address"
+                  aria-label="Desbloquear IP"
+                  title="Desbloquear"
+                >
+                  @if (unblockingIp() === row.ip_address) {
+                    <mat-icon aria-hidden="true" class="action-icon-spin">autorenew</mat-icon>
+                  } @else {
+                    <mat-icon aria-hidden="true">lock_open</mat-icon>
+                  }
+                </button>
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination">
+    <button
+      type="button"
+      class="btn-inline"
+      (click)="goPrevPage()"
+      [disabled]="loading() || currentPage() <= 1"
+    >
+      Anterior
+    </button>
+
+    @if (currentPage() > 3) {
+      <button type="button" class="btn-inline" (click)="goToPage(1)">1</button>
+      @if (currentPage() > 4) {
+        <span class="ellipsis">...</span>
+      }
+    }
+
+    @for (page of pageNumbers(); track page) {
+      <button
+        type="button"
+        class="btn-inline"
+        [class.active-page]="page === currentPage()"
+        (click)="goToPage(page)"
+        [disabled]="loading()"
+      >
+        {{ page }}
+      </button>
+    }
+
+    @if (currentPage() < lastPage() - 2) {
+      @if (currentPage() < lastPage() - 3) {
+        <span class="ellipsis">...</span>
+      }
+      <button type="button" class="btn-inline" (click)="goToPage(lastPage())">{{ lastPage() }}</button>
+    }
+
+    <button
+      type="button"
+      class="btn-inline"
+      (click)="goNextPage()"
+      [disabled]="loading() || currentPage() >= lastPage()"
+    >
+      Siguiente
+    </button>
+  </div>
+</section>
+
+<app-confirm-dialog
+  [open]="unblockConfirmOpen()"
+  [loading]="unblockingIp() !== null"
+  title="Desbloquear IP"
+  [message]="unblockConfirmMessage()"
+  confirmText="Sí, desbloquear"
+  cancelText="Cancelar"
+  loadingConfirmText="Desbloqueando…"
+  (confirm)="confirmUnblock()"
+  (cancel)="closeUnblockConfirm()"
+/>

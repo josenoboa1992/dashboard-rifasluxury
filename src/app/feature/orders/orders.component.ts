@@ -22,10 +22,12 @@ import { formatMoneyDop } from '../../core/helpers/money-format.helper';
 import { ChartsService } from '../../core/charts/services/charts.service';
 import {
   BulkOrderDeleteSkipped,
+  mergeOrderBankGroups,
   Order,
+  OrderBankGroup,
+  orderGroupsFromPaginatedOrdersResponse,
   ORDERS_BULK_DELETE_MAX_IDS,
   OrdersService,
-  PaginatedOrdersResponse,
 } from '../../core/orders/services/orders.service';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -62,7 +64,8 @@ export class OrdersComponent implements OnInit {
   readonly loading = signal(false);
   readonly loadingMore = signal(false);
   readonly error = signal<string | null>(null);
-  readonly orders = signal<Order[]>([]);
+  /** Pedidos agrupados por banco (respuesta actual del listado admin). */
+  readonly orderGroups = signal<OrderBankGroup[]>([]);
   readonly searchTerm = signal('');
   /** Filtro enviado al API (`''` = todos). */
   readonly statusFilter = signal('');
@@ -199,14 +202,23 @@ export class OrdersComponent implements OnInit {
   readonly sessionUser = signal<LoginUser | null>(this.auth.getSessionUser());
   readonly isAdmin = computed(() => OrdersComponent.userIsAdmin(this.sessionUser()));
 
-  readonly visibleOrders = computed(() => {
+  readonly ordersFlat = computed(() => this.orderGroups().flatMap((g) => g.orders));
+
+  readonly visibleOrderGroups = computed(() => {
     const term = this.searchTerm().trim().toLowerCase();
-    if (!term) return this.orders();
-    return this.orders().filter((o) => {
-      const hay = `${o.customer_name} ${o.cedula} ${o.email} ${o.phone} ${o.status} ${o.raffle?.title ?? ''} ${o.id}`.toLowerCase();
-      return hay.includes(term);
-    });
+    if (!term) return this.orderGroups();
+    return this.orderGroups()
+      .map((g) => ({
+        bank_name: g.bank_name,
+        orders: g.orders.filter((o) => {
+          const hay = `${o.customer_name} ${o.cedula} ${o.email} ${o.phone} ${o.status} ${o.raffle?.title ?? ''} ${o.bank_name ?? ''} ${o.id}`.toLowerCase();
+          return hay.includes(term);
+        }),
+      }))
+      .filter((g) => g.orders.length > 0);
   });
+
+  readonly visibleOrders = computed(() => this.visibleOrderGroups().flatMap((g) => g.orders));
 
   readonly rejectConfirmMessage = computed(() => {
     const o = this.orderDetail();
@@ -385,7 +397,7 @@ export class OrdersComponent implements OnInit {
       .subscribe({
         next: (res) => {
           if (gen !== this.listRequestGeneration) return;
-          this.orders.set(res.data ?? []);
+          this.orderGroups.set(orderGroupsFromPaginatedOrdersResponse(res));
           this.lastLoadedPage.set(res.current_page ?? 1);
           this.lastPage.set(res.last_page ?? 1);
           this.perPage.set(res.per_page ?? 25);
@@ -394,7 +406,7 @@ export class OrdersComponent implements OnInit {
         },
         error: (err) => {
           if (gen !== this.listRequestGeneration) return;
-          this.orders.set([]);
+          this.orderGroups.set([]);
           this.lastLoadedPage.set(0);
           this.error.set(
             String(err?.error?.message || err?.error?.detail || 'No fue posible cargar los pedidos.'),
@@ -414,11 +426,8 @@ export class OrdersComponent implements OnInit {
       .subscribe({
         next: (res) => {
           if (gen !== this.listRequestGeneration) return;
-          const cur = this.orders();
-          const batch = res.data ?? [];
-          const ids = new Set(cur.map((o) => o.id));
-          const merged = [...cur, ...batch.filter((o) => !ids.has(o.id))];
-          this.orders.set(merged);
+          const incoming = orderGroupsFromPaginatedOrdersResponse(res);
+          this.orderGroups.set(mergeOrderBankGroups(this.orderGroups(), incoming));
           this.lastLoadedPage.set(res.current_page ?? nextPage);
           this.lastPage.set(res.last_page ?? this.lastPage());
           this.perPage.set(res.per_page ?? this.perPage());
@@ -626,6 +635,7 @@ export class OrdersComponent implements OnInit {
       `Valor: ${formatMoneyDop(d.total_amount) ?? String(d.total_amount ?? '')}`,
       `Estado: ${orderStatusLabelEs(d.status)}`,
       `Rifa: ${d.raffle?.title ?? '—'}`,
+      (d.bank_name ?? '').trim() ? `Banco: ${d.bank_name}` : '',
       `Cédula: ${d.cedula || '—'}`,
       this.orderShareUrl(d) ? `Enlace: ${this.orderShareUrl(d)}` : '',
     ].filter((x) => x.length > 0);
@@ -639,8 +649,29 @@ export class OrdersComponent implements OnInit {
     return this.sanitizer.bypassSecurityTrustResourceUrl(u);
   }
 
+  /**
+   * Mismo criterio que el API para revisar: estado pendiente de validación.
+   * Normaliza variantes (`PENDING_VALIDATION`, `pending-validation`, etc.).
+   */
   canReview(): boolean {
-    return this.orderDetail()?.status === 'pending_validation';
+    const o = this.orderDetail();
+    if (!o) return false;
+    return OrdersComponent.normalizeOrderStatus(o.status) === 'pending_validation';
+  }
+
+  /** Comparación de estado tolerante a mayúsculas/guiones del backend. */
+  isOrderStatus(
+    order: Order,
+    expected: 'pending_validation' | 'confirmed' | 'cancelled',
+  ): boolean {
+    return OrdersComponent.normalizeOrderStatus(order.status) === expected;
+  }
+
+  private static normalizeOrderStatus(raw: string | null | undefined): string {
+    return String(raw ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/-/g, '_');
   }
 
   /**
@@ -654,11 +685,20 @@ export class OrdersComponent implements OnInit {
   }
 
   ordersTableColspan(): number {
-    return this.isAdmin() ? 11 : 10;
+    return this.isAdmin() ? 12 : 11;
   }
 
   ordersMobileColspan(): number {
     return this.isAdmin() ? 6 : 5;
+  }
+
+  /** Etiqueta de banco en tabla (API o grupo). */
+  orderBankDisplay(order: Order, groupBankName: string): string {
+    const fromOrder = String(order.bank_name ?? '').trim();
+    if (fromOrder) return fromOrder;
+    const g = String(groupBankName ?? '').trim();
+    if (g && g !== 'Pedidos') return g;
+    return '—';
   }
 
   clearBulkSelection(): void {
@@ -876,7 +916,7 @@ export class OrdersComponent implements OnInit {
           this.orderDetail.set(updated);
           this.toast.successFromApiResponse(updated, approved ? 'Pedido aprobado' : 'Pedido rechazado');
           this.reloadFromStart({ refreshStats: true });
-          if (updated.status !== 'pending_validation') {
+          if (OrdersComponent.normalizeOrderStatus(updated.status) !== 'pending_validation') {
             this.reviewNotes.setValue(updated.admin_notes ?? '');
           }
         },

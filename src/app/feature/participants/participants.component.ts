@@ -1,7 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { finalize } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { debounceTime, finalize } from 'rxjs/operators';
 
 import { SpinnerComponent } from '../../core/ui/spinner/spinner.component';
 import { ConfirmDialogComponent } from '../../core/ui/confirm-dialog/confirm-dialog.component';
@@ -11,6 +13,7 @@ import { FormatDateTimePipe } from '../../core/pipes/format-date-time.pipe';
 import {
   Participant,
   ParticipantPayload,
+  PaginatedParticipantsResponse,
   ParticipantsService,
 } from '../../core/participants/services/participants.service';
 import { digitsOnly } from '../../core/helpers/dr-phone-cedula-format';
@@ -37,7 +40,7 @@ import { DrCedulaMaskDirective } from '../../core/ui/masks/dr-cedula-mask.direct
   templateUrl: './participants.component.html',
   styleUrl: './participants.component.css',
 })
-export class ParticipantsComponent {
+export class ParticipantsComponent implements OnInit {
   readonly participantsLoading = signal(false);
   readonly participantsError = signal<string | null>(null);
   readonly participants = signal<Participant[]>([]);
@@ -58,15 +61,7 @@ export class ParticipantsComponent {
   readonly activeParticipantId = signal<number | null>(null);
   participantForm!: FormGroup;
 
-  readonly visibleParticipants = computed(() => {
-    const term = this.searchTerm().trim().toLowerCase();
-    if (!term) return this.participants();
-    return this.participants().filter((participant) => {
-      const haystack =
-        `${participant.name} ${participant.email} ${participant.phone ?? ''} ${participant.cedula ?? ''} ${this.participantValuationLabel(participant)}`.toLowerCase();
-      return haystack.includes(term);
-    });
-  });
+  private readonly searchReload = new Subject<void>();
 
   readonly pageNumbers = computed(() => {
     const current = this.currentPage();
@@ -89,7 +84,17 @@ export class ParticipantsComponent {
     private readonly participantsService: ParticipantsService,
     private readonly fb: FormBuilder,
     private readonly toast: ToastService,
-  ) {}
+  ) {
+    this.searchReload.pipe(debounceTime(350), takeUntilDestroyed()).subscribe(() => {
+      this.currentPage.set(1);
+      const term = this.searchTerm().trim();
+      if (!term) {
+        this.loadParticipantsPage(1);
+      } else {
+        this.loadSearchPage(1);
+      }
+    });
+  }
 
   /** Texto para columna Valoración (segment_label del API o segment formateado). */
   participantValuationLabel(p: Participant): string {
@@ -110,22 +115,24 @@ export class ParticipantsComponent {
     this.loadParticipants();
   }
 
+  /** Listado paginado o búsqueda según haya texto en el buscador. */
   loadParticipants(page: number = this.currentPage()): void {
+    if (this.searchTerm().trim()) {
+      this.loadSearchPage(page);
+    } else {
+      this.loadParticipantsPage(page);
+    }
+  }
+
+  private loadParticipantsPage(page: number): void {
     this.participantsLoading.set(true);
     this.participantsError.set(null);
     this.participantsService
-      .listParticipants(page, this.perPage())
+      .listParticipants(page, 15)
       .pipe(finalize(() => this.participantsLoading.set(false)))
       .subscribe({
         next: (res) => {
-          const data = res.data ?? [];
-          this.participants.set(data);
-          this.currentPage.set(res.current_page ?? page);
-          this.lastPage.set(res.last_page ?? 1);
-          this.perPage.set(res.per_page ?? 15);
-          this.fromItem.set(res.from ?? 0);
-          this.toItem.set(res.to ?? 0);
-          this.totalParticipants.set(res.total ?? 0);
+          this.applyPaginatedResponse(res, page);
         },
         error: (err) => {
           const message =
@@ -137,12 +144,51 @@ export class ParticipantsComponent {
       });
   }
 
+  /** GET /api/participants/search — filtro en servidor. */
+  private loadSearchPage(page: number): void {
+    const q = this.searchTerm().trim();
+    if (!q.length) {
+      this.loadParticipantsPage(1);
+      return;
+    }
+    this.participantsLoading.set(true);
+    this.participantsError.set(null);
+    this.participantsService
+      .searchParticipants(q, page, 15)
+      .pipe(finalize(() => this.participantsLoading.set(false)))
+      .subscribe({
+        next: (res) => {
+          this.applyPaginatedResponse(res, page);
+        },
+        error: (err) => {
+          const message =
+            err?.error?.message ||
+            err?.error?.detail ||
+            'No fue posible buscar participantes.';
+          this.participantsError.set(String(message));
+        },
+      });
+  }
+
+  private applyPaginatedResponse(res: PaginatedParticipantsResponse, page: number): void {
+    const data = res.data ?? [];
+    this.participants.set(data);
+    this.currentPage.set(res.current_page ?? page);
+    this.lastPage.set(res.last_page ?? 1);
+    this.perPage.set(res.per_page ?? 15);
+    this.fromItem.set(res.from ?? 0);
+    this.toItem.set(res.to ?? 0);
+    this.totalParticipants.set(res.total ?? 0);
+  }
+
   onSearchInput(term: string): void {
     this.searchTerm.set(term);
+    this.searchReload.next();
   }
 
   clearSearch(): void {
     this.searchTerm.set('');
+    this.searchReload.next();
   }
 
   goToPage(page: number): void {
@@ -289,4 +335,3 @@ export class ParticipantsComponent {
       });
   }
 }
-
