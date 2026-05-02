@@ -1,4 +1,4 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
@@ -30,10 +30,18 @@ export class ChartsService {
     return token ? new HttpHeaders({ Authorization: `Bearer ${token}` }) : new HttpHeaders();
   }
 
-  ordersDistribution(): Observable<OrdersDistributionChartResponse> {
+  /**
+   * Conteos de órdenes / tickets / disponibles. Sin `raffle_id` el backend agrega
+   * todas las rifas; con `raffle_id` solo la rifa indicada.
+   */
+  ordersDistribution(raffleId?: number | null): Observable<OrdersDistributionChartResponse> {
+    let params = new HttpParams();
+    if (raffleId != null && Number.isFinite(raffleId) && raffleId >= 1) {
+      params = params.set('raffle_id', String(Math.floor(raffleId)));
+    }
     return this.http.get<OrdersDistributionChartResponse>(
       `${environment.apiBaseUrl}/api/admin/charts/orders-distribution`,
-      { headers: this.authHeaders() },
+      { headers: this.authHeaders(), params },
     );
   }
 }

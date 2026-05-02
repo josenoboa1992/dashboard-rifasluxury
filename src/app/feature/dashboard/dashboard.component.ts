@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Observable, forkJoin, of } from 'rxjs';
-import { catchError, finalize, map, switchMap } from 'rxjs/operators';
+import { catchError, finalize, map, mergeMap, switchMap } from 'rxjs/operators';
 
 import { LoginUser } from '../../core/auth/models/login-response.model';
 import { orderStatusLabelEs, roleLabelEs } from '../../core/helpers/ui-labels.es';
@@ -32,6 +32,11 @@ import { PlayedNumbersComponent } from '../../feature/played-numbers/played-numb
 import { RafflePrizesComponent } from '../../feature/raffle-prizes/raffle-prizes.component';
 import { ClientConsultationComponent } from '../../feature/client-consultation/client-consultation.component';
 import { BlockedIpsComponent } from '../../feature/blocked-ips/blocked-ips.component';
+import type { UpdateSessionListItem } from '../../core/update-sessions/models/update-session.model';
+import { UpdateSessionsService } from '../../core/update-sessions/services/update-sessions.service';
+import { UpdateSessionDetailComponent } from '../../feature/update-session-detail/update-session-detail.component';
+import { UpdateSessionsManageComponent } from '../../feature/update-sessions-manage/update-sessions-manage.component';
+import { UpdatesComponent } from '../../feature/updates/updates.component';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -59,6 +64,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
     RafflePrizesComponent,
     ClientConsultationComponent,
     BlockedIpsComponent,
+    UpdatesComponent,
+    UpdateSessionsManageComponent,
+    UpdateSessionDetailComponent,
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css',
@@ -83,6 +91,8 @@ export class DashboardComponent {
     'prizes',
     'consulta',
     'blocked-ips',
+    'updates',
+    'update-sessions-manage',
   ]);
 
   private readonly router = inject(Router);
@@ -93,6 +103,8 @@ export class DashboardComponent {
   private readonly ordersService = inject(OrdersService);
   private readonly rafflesService = inject(RafflesService);
   private readonly participantsService = inject(ParticipantsService);
+  /** Actualizaciones publicadas (campana, lista y detalle). */
+  readonly updateSessionsService = inject(UpdateSessionsService);
 
   readonly currentView = signal<
     | 'dashboard'
@@ -107,6 +119,9 @@ export class DashboardComponent {
     | 'prizes'
     | 'consulta'
     | 'blocked-ips'
+    | 'updates'
+    | 'update-detail'
+    | 'update-sessions-manage'
   >('dashboard');
   readonly sidebarCollapsed = signal(false);
   /** Coincide con el breakpoint CSS (max-width: 899px): drawer móvil. */
@@ -115,6 +130,12 @@ export class DashboardComponent {
   readonly logoutOpen = signal(false);
   readonly changePasswordOpen = signal(false);
   readonly userMenuOpen = signal(false);
+  /** Panel desplegable de la campana (lista reciente). */
+  readonly notificationsOpen = signal(false);
+  readonly bellListLoading = signal(false);
+  readonly bellItems = signal<UpdateSessionListItem[]>([]);
+  /** Id de la sesión en `view=update-detail` (query `updateId`). */
+  readonly updateDetailSessionId = signal<number | null>(null);
 
   /** Perfil del login guardado en sesión (`user` del API). */
   readonly sessionUser = signal<LoginUser | null>(null);
@@ -175,6 +196,16 @@ export class DashboardComponent {
     return typeof role === 'string' && role.trim().toLowerCase() === 'admin';
   }
 
+  /** Solo rol soporte (API `support` / `soporte`): ve «Gestionar actualizaciones». */
+  static userCanManageUpdateSessions(u: LoginUser | null): boolean {
+    const role = (u?.role ?? '').trim().toLowerCase();
+    return role === 'support' || role === 'soporte';
+  }
+
+  readonly canManageUpdateSessions = computed(() =>
+    DashboardComponent.userCanManageUpdateSessions(this.sessionUser()),
+  );
+
   isLoggingOut = false;
   isChangePasswordSubmitting = false;
 
@@ -192,6 +223,9 @@ export class DashboardComponent {
     @Inject(PLATFORM_ID) private readonly platformId: object,
   ) {
     this.sessionUser.set(this.auth.getSessionUser());
+    if (isPlatformBrowser(this.platformId)) {
+      this.updateSessionsService.refreshUnreadCount();
+    }
 
     if (isPlatformBrowser(this.platformId)) {
       const mq = window.matchMedia('(max-width: 899px)');
@@ -214,6 +248,23 @@ export class DashboardComponent {
         void this.router.navigate(['/dashboard'], { replaceUrl: true });
         return;
       }
+      if (v === 'update-sessions-manage' && !DashboardComponent.userCanManageUpdateSessions(this.sessionUser())) {
+        void this.router.navigate(['/dashboard'], { replaceUrl: true });
+        return;
+      }
+      if (v === 'update-detail') {
+        const raw = params.get('updateId');
+        const id = raw != null ? Number(raw) : NaN;
+        if (!Number.isFinite(id) || id <= 0) {
+          void this.router.navigate(['/dashboard'], { queryParams: { view: 'updates' }, replaceUrl: true });
+          return;
+        }
+        this.updateDetailSessionId.set(id);
+        this.currentView.set('update-detail');
+        this.closeMobileNav();
+        return;
+      }
+      this.updateDetailSessionId.set(null);
       if (v && DashboardComponent.URL_VIEWS.has(v)) {
         this.currentView.set(
           v as
@@ -227,7 +278,9 @@ export class DashboardComponent {
             | 'numbers'
             | 'prizes'
             | 'consulta'
-            | 'blocked-ips',
+            | 'blocked-ips'
+            | 'updates'
+            | 'update-sessions-manage',
         );
       } else {
         this.currentView.set('dashboard');
@@ -353,6 +406,63 @@ export class DashboardComponent {
     return roleLabelEs(role);
   }
 
+  toggleNotificationsPanel(ev: Event): void {
+    ev.stopPropagation();
+    this.closeUserMenu();
+    this.notificationsOpen.update((open) => {
+      const next = !open;
+      if (next) {
+        this.loadBellList();
+      }
+      return next;
+    });
+  }
+
+  closeNotificationsPanel(): void {
+    this.notificationsOpen.set(false);
+  }
+
+  private loadBellList(): void {
+    this.bellListLoading.set(true);
+    this.collectUnreadBellItems(1, [])
+      .pipe(finalize(() => this.bellListLoading.set(false)))
+      .subscribe({
+        next: (items) => this.bellItems.set(items),
+        error: () => this.bellItems.set([]),
+      });
+  }
+
+  /** Hasta 15 filas no leídas; avanza páginas si la primera está llena de leídas. */
+  private collectUnreadBellItems(
+    page: number,
+    acc: UpdateSessionListItem[],
+  ): Observable<UpdateSessionListItem[]> {
+    return this.updateSessionsService.listPublished(page, 30).pipe(
+      mergeMap((res) => {
+        const pageUnread = (res.data ?? []).filter((r) => r.is_read !== true);
+        const combined = [...acc, ...pageUnread];
+        const capped = combined.slice(0, 15);
+        const lastPage = res.last_page ?? page;
+        if (capped.length >= 15 || page >= lastPage) {
+          return of(capped);
+        }
+        return this.collectUnreadBellItems(page + 1, capped);
+      }),
+    );
+  }
+
+  openUpdateFromBell(id: number, ev: Event): void {
+    ev.stopPropagation();
+    this.closeNotificationsPanel();
+    void this.router.navigate(['/dashboard'], { queryParams: { view: 'update-detail', updateId: id } });
+  }
+
+  goToAllUpdates(ev: Event): void {
+    ev.stopPropagation();
+    this.closeNotificationsPanel();
+    this.openView('updates');
+  }
+
   orderTimelineDotClass(status: string | undefined): string {
     const s = status ?? '';
     if (s === 'pending_validation') return 'tl-dot warn';
@@ -410,8 +520,10 @@ export class DashboardComponent {
       | 'numbers'
       | 'prizes'
       | 'consulta'
-      | 'blocked-ips',
-    orderId?: number,
+      | 'blocked-ips'
+      | 'updates'
+      | 'update-sessions-manage',
+    ordersQuery?: number | { raffleId?: number; orderId?: number },
   ): void {
     if (
       (view === 'users' || view === 'blocked-ips') &&
@@ -419,13 +531,31 @@ export class DashboardComponent {
     ) {
       view = 'dashboard';
     }
+    if (view === 'update-sessions-manage' && !DashboardComponent.userCanManageUpdateSessions(this.sessionUser())) {
+      view = 'dashboard';
+    }
+    this.closeNotificationsPanel();
     this.currentView.set(view);
     if (view === 'dashboard') {
       void this.router.navigate(['/dashboard'], { replaceUrl: true });
     } else {
       const queryParams: Record<string, string | number> = { view };
-      if (view === 'orders' && typeof orderId === 'number' && Number.isFinite(orderId) && orderId > 0) {
-        queryParams['orderId'] = orderId;
+      if (view === 'orders' && ordersQuery != null) {
+        if (typeof ordersQuery === 'number') {
+          const oid = Math.floor(ordersQuery);
+          if (Number.isFinite(oid) && oid > 0) {
+            queryParams['orderId'] = oid;
+          }
+        } else {
+          const rid = Number(ordersQuery.raffleId);
+          if (Number.isFinite(rid) && rid > 0) {
+            queryParams['raffle_id'] = Math.floor(rid);
+          }
+          const oid = Number(ordersQuery.orderId);
+          if (Number.isFinite(oid) && oid > 0) {
+            queryParams['orderId'] = Math.floor(oid);
+          }
+        }
       }
       void this.router.navigate(['/dashboard'], {
         queryParams,
@@ -434,8 +564,22 @@ export class DashboardComponent {
     }
   }
 
+  /** Órdenes recientes → `/dashboard?view=orders&raffle_id=…&orderId=…` */
+  openRecentOrder(order: Order): void {
+    const rid = Number(order.raffle_id);
+    const oid = Number(order.id);
+    const q: { raffleId?: number; orderId?: number } = {};
+    if (Number.isFinite(rid) && rid > 0) q.raffleId = Math.floor(rid);
+    if (Number.isFinite(oid) && oid > 0) q.orderId = Math.floor(oid);
+    this.openView('orders', q);
+  }
+
   @HostListener('document:keydown.escape')
   onEsc(): void {
+    if (this.notificationsOpen()) {
+      this.closeNotificationsPanel();
+      return;
+    }
     if (this.changePasswordOpen()) {
       this.closeChangePasswordModal();
       return;
@@ -455,6 +599,7 @@ export class DashboardComponent {
   onDocClick(): void {
     this.closeUserMenu();
     this.closeMobileNav();
+    this.closeNotificationsPanel();
   }
 
   openChangePasswordModal(): void {

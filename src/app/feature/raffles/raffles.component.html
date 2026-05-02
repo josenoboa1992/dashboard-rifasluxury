@@ -60,6 +60,7 @@
           <th>Boletos meta</th>
           <th>Boletos vendidos</th>
           <th>Disponibles</th>
+          <th>Fin venta</th>
           <th>Fecha sorteo</th>
           <th>Acciones</th>
         </tr>
@@ -67,7 +68,7 @@
       <tbody>
         @if (!loading() && visibleRaffles().length === 0) {
           <tr>
-            <td colspan="10" class="empty">No hay rifas para mostrar.</td>
+            <td colspan="11" class="empty">No hay rifas para mostrar.</td>
           </tr>
         } @else {
           @for (raffle of visibleRaffles(); track raffle.id) {
@@ -86,6 +87,7 @@
               <td>{{ raffle.ticket_goal }}</td>
               <td>{{ raffle.tickets_sold_count ?? '—' }}</td>
               <td>{{ raffle.tickets_available_count ?? '—' }}</td>
+              <td>{{ endsAtTableCell(raffle) }}</td>
               <td>{{ drawAtTableCell(raffle) }}</td>
               <td>
                 <div class="row-actions">
@@ -97,6 +99,15 @@
                     title="Ver"
                   >
                     <mat-icon aria-hidden="true">visibility</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="action-icon action-icon--orders"
+                    (click)="openOrdersForRaffle(raffle, $event)"
+                    aria-label="Ver pedidos de esta rifa"
+                    title="Pedidos de la rifa"
+                  >
+                    <mat-icon aria-hidden="true">receipt_long</mat-icon>
                   </button>
                   <button
                     type="button"
@@ -267,6 +278,15 @@
                 >Si está activo, en la tienda se podrá ver qué números siguen libres; si no, no se muestran.</small
               >
             </div>
+            <div class="toggle-field full">
+              <mat-slide-toggle formControlName="show_ends_at" color="primary">
+                Mostrar fecha de fin en la tienda (público)
+              </mat-slide-toggle>
+              <small class="input-help"
+                >Si está desactivado, la fecha real se sigue usando para ventas y en este panel; en las APIs públicas el
+                cliente no verá fecha de fin (ends_at será null).</small
+              >
+            </div>
             <div class="datetime-block full">
               <div class="datetime-row">
                 <mat-form-field appearance="outline" class="datetime-date">
@@ -365,8 +385,20 @@
                   </mat-form-field>
                 </div>
               </div>
+              @if (modalMode() !== 'view') {
+                <button
+                  type="button"
+                  class="btn-inline ends-at-clear"
+                  (click)="clearEndsAt()"
+                  [disabled]="!raffleForm.get('ends_at_date')?.value"
+                  title="Quitar fecha de fin; podrás definirla después al editar la rifa"
+                >
+                  Quitar fecha de fin (dejar pendiente)
+                </button>
+              }
               <small class="input-help"
-                >Opcional al crear: puedes dejarla pendiente. Si la indicas, debe ser igual o posterior a Inicio.</small
+                >Opcional: puedes crear la rifa sin fecha de fin y asignarla más tarde al editar. Si indicas fin, debe ser
+                igual o posterior a inicio.</small
               >
               @if (isInvalid('ends_at_date') || isInvalid('ends_at_hour') || isInvalid('ends_at_minute') || isInvalid('ends_at_ampm')) {
                 <small class="field-error">{{ getErrorMessage('ends_at_date') || firstTimeError('ends_at') }}</small>

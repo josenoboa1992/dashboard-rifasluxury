@@ -1,0 +1,61 @@
+<div class="page-head">
+  <div>
+    <h1>Actualizaciones</h1>
+    <p>Novedades publicadas del sistema.</p>
+  </div>
+</div>
+
+@if (error()) {
+  <div class="list-error" role="alert">{{ error() }}</div>
+}
+
+<section class="panel updates-panel" aria-label="Listado de actualizaciones">
+  <div class="panel-h">Historial</div>
+  <div class="panel-b updates-list">
+    @if (loading()) {
+      <div class="updates-loading">
+        <app-spinner [size]="28" [stroke]="3" label="Cargando" />
+        <span>Cargando…</span>
+      </div>
+    } @else if (items().length === 0) {
+      <p class="updates-empty">No hay actualizaciones publicadas.</p>
+    } @else {
+      @for (item of items(); track item.id) {
+        <article
+          class="update-card"
+          [class.update-card--unread]="!item.is_read"
+          role="link"
+          tabindex="0"
+          (click)="openDetail(item.id)"
+          (keydown)="onCardKey($event, item.id)"
+        >
+          <div class="update-card__row">
+            <time class="update-card__date" [attr.datetime]="item.published_at ?? ''">{{
+              item.published_at ? (item.published_at | formatDateTime) : '—'
+            }}</time>
+            @if (!item.is_read) {
+              <span class="update-card__pill">Sin leer</span>
+            }
+          </div>
+          <h2 class="update-card__title">{{ item.title }}</h2>
+        </article>
+      }
+      @if (lastPage() > 1) {
+        <div class="updates-pagination">
+          <button type="button" class="btn-inline" (click)="goPage(currentPage() - 1)" [disabled]="currentPage() <= 1">
+            Anterior
+          </button>
+          <span class="updates-pagination__meta">Página {{ currentPage() }} / {{ lastPage() }} · {{ total() }} total</span>
+          <button
+            type="button"
+            class="btn-inline"
+            (click)="goPage(currentPage() + 1)"
+            [disabled]="currentPage() >= lastPage()"
+          >
+            Siguiente
+          </button>
+        </div>
+      }
+    }
+  </div>
+</section>

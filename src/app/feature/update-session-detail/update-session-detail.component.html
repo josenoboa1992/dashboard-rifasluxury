@@ -1,0 +1,43 @@
+<div class="usd-root">
+  <div class="usd-head-row">
+    <button type="button" class="usd-back" (click)="backToList()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M15 18 9 12l6-6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      Volver a actualizaciones
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="usd-state">
+      <app-spinner [size]="32" [stroke]="3" label="Cargando" />
+      <span>Cargando…</span>
+    </div>
+  } @else if (error()) {
+    <p class="usd-error" role="alert">{{ error() }}</p>
+    <button type="button" class="usd-retry" (click)="backToList()">Ir al historial</button>
+  } @else {
+    @if (detail(); as d) {
+      <div class="page-head usd-head">
+        <div>
+          <h1 class="usd-title">{{ d.title }}</h1>
+          <p class="usd-meta">
+            @if (d.published_at) {
+              <time [attr.datetime]="d.published_at">{{ d.published_at | formatDateTime }}</time>
+            } @else {
+              <span>—</span>
+            }
+            @if (d.is_read === false) {
+              <span class="usd-pill">Sin leer</span>
+            }
+          </p>
+        </div>
+      </div>
+      <section class="panel usd-panel" aria-label="Contenido de la actualización">
+        <div class="panel-b usd-body-wrap">
+          <div class="usd-body" [innerHTML]="bodySafe()"></div>
+        </div>
+      </section>
+    }
+  }
+</div>

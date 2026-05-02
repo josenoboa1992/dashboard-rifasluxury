@@ -1,0 +1,152 @@
+<div class="page-head">
+  <div>
+    <h1>Gestionar actualizaciones</h1>
+    <p>Crear y publicar novedades visibles para el equipo en «Actualizaciones».</p>
+  </div>
+  <button type="button" class="btn btn-primary" (click)="openCreate()">Nueva actualización</button>
+</div>
+
+<section class="panel" aria-label="Sesiones de actualización">
+  <div class="panel-h">Listado</div>
+  <div class="panel-b">
+    @if (loading()) {
+      <div class="manage-loading">
+        <app-spinner [size]="28" [stroke]="3" label="Cargando" />
+        <span>Cargando…</span>
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Título</th>
+              <th>Publicación</th>
+              <th>Lecturas</th>
+              <th class="nowrap">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.id) {
+              <tr>
+                <td>{{ row.id }}</td>
+                <td>{{ row.title }}</td>
+                <td>{{ row.published_at ? (row.published_at | formatDateTime) : 'Borrador' }}</td>
+                <td>
+                  @if (row.read_count != null && row.total_users != null) {
+                    {{ row.read_count }} / {{ row.total_users }}
+                  } @else {
+                    —
+                  }
+                </td>
+                <td class="nowrap">
+                  <button type="button" class="btn-inline" (click)="openEdit(row)">Editar</button>
+                  <button type="button" class="btn-inline btn-inline--danger" (click)="confirmDelete(row)">
+                    Eliminar
+                  </button>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="empty">No hay sesiones. Crea la primera.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (lastPage() > 1) {
+        <div class="manage-pagination">
+          <button type="button" class="btn-inline" (click)="goPage(currentPage() - 1)" [disabled]="currentPage() <= 1">
+            Anterior
+          </button>
+          <span>{{ currentPage() }} / {{ lastPage() }}</span>
+          <button
+            type="button"
+            class="btn-inline"
+            (click)="goPage(currentPage() + 1)"
+            [disabled]="currentPage() >= lastPage()"
+          >
+            Siguiente
+          </button>
+        </div>
+      }
+    }
+  </div>
+</section>
+
+@if (modalOpen()) {
+  <div class="usm-modal-backdrop" role="presentation" (click)="closeModal()">
+    <div class="usm-modal" role="dialog" aria-modal="true" aria-labelledby="usm-title" (click)="$event.stopPropagation()">
+      <div class="usm-modal-h" id="usm-title">{{ editingId() == null ? 'Nueva actualización' : 'Editar actualización' }}</div>
+      <form [formGroup]="form" (ngSubmit)="save()" class="usm-modal-form">
+        <div class="usm-modal-b">
+          <label class="usm-field">
+            <span>Título</span>
+            <input type="text" formControlName="title" class="usm-input" maxlength="255" autocomplete="off" />
+          </label>
+          <div class="usm-field">
+            <span id="usm-body-label">Cuerpo (texto o HTML)</span>
+            <div class="usm-quill" aria-labelledby="usm-body-label">
+              <quill-editor
+                formControlName="body"
+                format="html"
+                theme="snow"
+                placeholder="Escribe la actualización…"
+                linkPlaceholder="https://"
+              />
+            </div>
+            <span class="usm-hint">Barra de Quill: formato enriquecido; se guarda como HTML.</span>
+          </div>
+          <div class="usm-field">
+            <span>Publicar el (opcional; vacío = borrador)</span>
+            <div class="datetime-block full usm-datetime">
+              <div class="datetime-row">
+                <mat-form-field appearance="outline" class="datetime-date">
+                  <mat-label>Fecha</mat-label>
+                  <input matInput [matDatepicker]="pickerPub" formControlName="published_at_date" [readonly]="true" />
+                  <mat-datepicker-toggle matIconSuffix [for]="pickerPub"></mat-datepicker-toggle>
+                  <mat-datepicker #pickerPub></mat-datepicker>
+                </mat-form-field>
+                <div class="datetime-time-group">
+                  <mat-form-field appearance="outline" class="time-hour">
+                    <mat-label>Hora</mat-label>
+                    <mat-select formControlName="published_at_hour" [compareWith]="compareNumericSelect">
+                      @for (h of hours12; track h) {
+                        <mat-option [value]="h">{{ h }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="time-minute">
+                    <mat-label>Min</mat-label>
+                    <mat-select formControlName="published_at_minute" [compareWith]="compareNumericSelect">
+                      @for (m of minutesList; track m) {
+                        <mat-option [value]="m">{{ minuteLabel(m) }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="time-ampm">
+                    <mat-label>Periodo</mat-label>
+                    <mat-select formControlName="published_at_ampm">
+                      <mat-option value="am">a.m.</mat-option>
+                      <mat-option value="pm">p.m.</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+              </div>
+            </div>
+            <small class="usm-input-help">Sin fecha de publicación el registro queda como borrador.</small>
+          </div>
+        </div>
+        <div class="usm-modal-f">
+          <button type="button" class="usm-btn-ghost" (click)="closeModal()" [disabled]="saving()">Cancelar</button>
+          <button type="submit" class="btn-primary usm-btn-submit" [disabled]="saving()">
+            @if (saving()) {
+              <app-spinner [size]="16" [stroke]="2" label="Guardando" />
+            }
+            Guardar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

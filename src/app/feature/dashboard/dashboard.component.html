@@ -176,23 +176,60 @@
           </svg>
           <span class="ni-label">Premios</span>
         </a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Utilidades</div>
+        @if (isAdmin()) {
+          <a
+            class="nav-item"
+            routerLink="/dashboard"
+            [queryParams]="{ view: 'numbers' }"
+            [replaceUrl]="true"
+            [class.active]="currentView() === 'numbers'"
+            [attr.aria-current]="currentView() === 'numbers' ? 'page' : null"
+          >
+            <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+              <path d="M12 2v20M2 12h20" />
+            </svg>
+            <span class="ni-label">Números</span>
+          </a>
+        }
+        @if (canManageUpdateSessions()) {
+          <a
+            class="nav-item"
+            routerLink="/dashboard"
+            [queryParams]="{ view: 'update-sessions-manage' }"
+            [replaceUrl]="true"
+            [class.active]="currentView() === 'update-sessions-manage'"
+            [attr.aria-current]="currentView() === 'update-sessions-manage' ? 'page' : null"
+          >
+            <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+              <path d="M12 20h9" stroke-linecap="round" />
+              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" stroke-linejoin="round" />
+            </svg>
+            <span class="ni-label">Gestionar actualizaciones</span>
+          </a>
+        }
         <a
           class="nav-item"
           routerLink="/dashboard"
-          [queryParams]="{ view: 'numbers' }"
+          [queryParams]="{ view: 'updates' }"
           [replaceUrl]="true"
-          [class.active]="currentView() === 'numbers'"
-          [attr.aria-current]="currentView() === 'numbers' ? 'page' : null"
+          [class.active]="currentView() === 'updates' || currentView() === 'update-detail'"
+          [attr.aria-current]="
+            currentView() === 'updates' || currentView() === 'update-detail' ? 'page' : null
+          "
         >
           <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-            <path d="M12 2v20M2 12h20" />
+            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
-          <span class="ni-label">Números</span>
+          <span class="ni-label">Actualizaciones</span>
+          @if (updateSessionsService.unreadCount() > 0) {
+            <span class="ni-badge">{{ updateSessionsService.unreadCount() }}</span>
+          }
         </a>
-      </div>
-      @if (isAdmin()) {
-        <div class="nav-section">
-          <div class="nav-label">Seguridad</div>
+        @if (isAdmin()) {
           <a
             class="nav-item"
             routerLink="/dashboard"
@@ -208,8 +245,22 @@
             </svg>
             <span class="ni-label">IPs bloqueadas</span>
           </a>
-        </div>
-      }
+        } @else {
+          <a
+            class="nav-item"
+            routerLink="/dashboard"
+            [queryParams]="{ view: 'numbers' }"
+            [replaceUrl]="true"
+            [class.active]="currentView() === 'numbers'"
+            [attr.aria-current]="currentView() === 'numbers' ? 'page' : null"
+          >
+            <svg class="ni-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+              <path d="M12 2v20M2 12h20" />
+            </svg>
+            <span class="ni-label">Números</span>
+          </a>
+        }
+      </div>
     </nav>
     <div class="sidebar-footer">
       <div class="nav-section">
@@ -278,6 +329,62 @@
         <span class="topbar-title">Rifas Luxury RD</span>
       </div>
       <div class="topbar-right">
+        <div class="topbar-notifications" (click)="$event.stopPropagation()">
+          <button
+            type="button"
+            class="icon-btn topbar-notifications-btn"
+            (click)="toggleNotificationsPanel($event)"
+            [attr.aria-expanded]="notificationsOpen()"
+            aria-haspopup="menu"
+            [attr.aria-label]="
+              updateSessionsService.unreadCount() > 0
+                ? 'Actualizaciones, ' + updateSessionsService.unreadCount() + ' sin leer'
+                : 'Actualizaciones'
+            "
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            @if (updateSessionsService.unreadCount() > 0) {
+              <span class="topbar-notifications-dot" aria-hidden="true"></span>
+            }
+          </button>
+          @if (notificationsOpen()) {
+            <div class="notifications-dropdown" role="menu" aria-label="Actualizaciones sin leer">
+              <div class="notifications-dropdown__header">Actualizaciones</div>
+              @if (bellListLoading()) {
+                <div class="notifications-dropdown__state">
+                  <app-spinner [size]="22" [stroke]="2.5" label="Cargando" />
+                  <span>Cargando…</span>
+                </div>
+              } @else if (bellItems().length === 0) {
+                <p class="notifications-dropdown__empty">No hay actualizaciones sin leer.</p>
+              } @else {
+                <div class="notifications-dropdown__scroll">
+                  @for (item of bellItems(); track item.id) {
+                    <button
+                      type="button"
+                      role="menuitem"
+                      class="notifications-item notifications-item--unread"
+                      (click)="openUpdateFromBell(item.id, $event)"
+                    >
+                      <span class="notifications-item__title">{{ item.title }}</span>
+                      <span class="notifications-item__meta">
+                        {{ item.published_at ? (item.published_at | formatDateTime) : '—' }}
+                      </span>
+                    </button>
+                  }
+                </div>
+              }
+              <div class="notifications-dropdown__footer">
+                <button type="button" class="notifications-dropdown__all" (click)="goToAllUpdates($event)">
+                  Ver todas
+                </button>
+              </div>
+            </div>
+          }
+        </div>
         <div class="user-menu" (click)="$event.stopPropagation()">
           <button
             type="button"
@@ -545,8 +652,8 @@
                   class="tl-row tl-row--click"
                   role="listitem"
                   tabindex="0"
-                  (click)="openView('orders', o.id)"
-                  (keydown.enter)="openView('orders', o.id)"
+                  (click)="openRecentOrder(o)"
+                  (keydown.enter)="openRecentOrder(o)"
                 >
                   <span [class]="orderTimelineDotClass(o.status)" aria-hidden="true"></span>
                   <div class="tl-main">
@@ -582,6 +689,14 @@
       <app-raffle-prizes />
       } @else if (currentView() === 'consulta') {
       <app-client-consultation />
+      } @else if (currentView() === 'updates') {
+      <app-updates />
+      } @else if (currentView() === 'update-detail') {
+      @if (updateDetailSessionId(); as sid) {
+        <app-update-session-detail [sessionId]="sid" />
+      }
+      } @else if (currentView() === 'update-sessions-manage' && canManageUpdateSessions()) {
+      <app-update-sessions-manage />
       }
     </main>
   </div>

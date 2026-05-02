@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, ViewChild, computed, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 
@@ -15,7 +16,6 @@ import { CategoriesService, Category } from '../../core/categories/services/cate
 import { formatDateTimeDisplay } from '../../core/helpers/date-format.helper';
 import { formatMoneyDop } from '../../core/helpers/money-format.helper';
 import { raffleStatusLabelEs } from '../../core/helpers/ui-labels.es';
-import { FormatDateTimePipe } from '../../core/pipes/format-date-time.pipe';
 import { FormatMoneyPipe } from '../../core/pipes/format-money.pipe';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -35,7 +35,6 @@ type RaffleTimePrefix = 'starts_at' | 'ends_at' | 'draw_at';
     ReactiveFormsModule,
     SpinnerComponent,
     ConfirmDialogComponent,
-    FormatDateTimePipe,
     FormatMoneyPipe,
     MatFormFieldModule,
     MatInputModule,
@@ -140,6 +139,7 @@ export class RafflesComponent {
     private readonly categoriesService: CategoriesService,
     private readonly fb: FormBuilder,
     private readonly toast: ToastService,
+    private readonly router: Router,
   ) {}
 
   ngOnInit(): void {
@@ -168,6 +168,7 @@ export class RafflesComponent {
       draw_at_minute: this.fb.nonNullable.control(0, [Validators.min(0), Validators.max(59)]),
       draw_at_ampm: this.fb.nonNullable.control<'am' | 'pm'>('pm'),
       show_available_tickets: this.fb.nonNullable.control(true),
+      show_ends_at: this.fb.nonNullable.control(true),
     });
     this.loadCategories();
     this.loadRaffles();
@@ -189,6 +190,28 @@ export class RafflesComponent {
     if (raw == null || String(raw).trim() === '') return 'Pendiente';
     const formatted = formatDateTimeDisplay(String(raw));
     return formatted || 'Pendiente';
+  }
+
+  /** Fin de venta: pendiente si el API aún no tiene `ends_at`. */
+  endsAtTableCell(raffle: Raffle): string {
+    const raw = raffle.ends_at as string | null | undefined;
+    if (raw == null || String(raw).trim() === '') return 'Pendiente';
+    const formatted = formatDateTimeDisplay(String(raw));
+    return formatted || 'Pendiente';
+  }
+
+  /** Quitar fecha de fin (crear sin cierre o dejar pendiente al editar). */
+  clearEndsAt(): void {
+    if (this.modalMode() === 'view') return;
+    this.raffleForm.patchValue({
+      ends_at_date: null,
+      ends_at_hour: 6,
+      ends_at_minute: 0,
+      ends_at_ampm: 'pm',
+    });
+    this.raffleForm.controls['ends_at_date'].markAsDirty();
+    this.raffleForm.controls['ends_at_date'].updateValueAndValidity({ emitEvent: true });
+    this.onEndsDateOrTimeChange();
   }
 
   get selectedBannerFileName(): string {
@@ -333,8 +356,12 @@ export class RafflesComponent {
     return true;
   }
 
-  private parseIsoToDateAndTime(iso: string | undefined): { date: Date | null; time: string } {
-    if (!iso) return { date: null, time: '00:00' };
+  private static coerceShowEndsAt(value: unknown): boolean {
+    return RafflesComponent.coerceShowAvailableTickets(value);
+  }
+
+  private parseIsoToDateAndTime(iso: string | null | undefined): { date: Date | null; time: string } {
+    if (iso == null || String(iso).trim() === '') return { date: null, time: '00:00' };
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return { date: null, time: '00:00' };
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -485,6 +512,7 @@ export class RafflesComponent {
       draw_at_minute: 0,
       draw_at_ampm: 'pm',
       show_available_tickets: true,
+      show_ends_at: true,
     });
     this.selectedBannerFile.set(null);
     this.currentBannerUrl.set(null);
@@ -494,6 +522,15 @@ export class RafflesComponent {
   openView(raffle: Raffle): void {
     this.modalMode.set('view');
     this.openWithDetail(raffle.id, true);
+  }
+
+  /** Abre el módulo de órdenes filtrado por esta rifa (`?raffle_id=`). */
+  openOrdersForRaffle(raffle: Raffle, event?: Event): void {
+    event?.stopPropagation();
+    void this.router.navigate(['/dashboard'], {
+      queryParams: { view: 'orders', raffle_id: raffle.id },
+      replaceUrl: true,
+    });
   }
 
   openEdit(raffle: Raffle): void {
@@ -544,6 +581,7 @@ export class RafflesComponent {
               };
             })(),
             show_available_tickets: RafflesComponent.coerceShowAvailableTickets(detail.show_available_tickets),
+            show_ends_at: RafflesComponent.coerceShowEndsAt(detail.show_ends_at),
           });
           this.selectedBannerFile.set(null);
           this.currentBannerUrl.set(
@@ -577,17 +615,23 @@ export class RafflesComponent {
 
   onStartsDateOrTimeChange(): void {
     const tsStart = this.toTimestampFromPrefix('starts_at');
-    const tsEnd = this.toTimestampFromPrefix('ends_at');
     const tsDraw = this.toTimestampFromPrefix('draw_at');
     const sd = this.raffleForm.controls['starts_at_date'].value as Date | null;
-    if (sd && !Number.isNaN(tsStart) && !Number.isNaN(tsEnd) && tsEnd < tsStart) {
-      this.raffleForm.controls['ends_at_date'].setValue(new Date(sd.getFullYear(), sd.getMonth(), sd.getDate()));
-      this.copyTimeParts('starts_at', 'ends_at');
+    const ed = this.raffleForm.controls['ends_at_date'].value as Date | null;
+    // Solo corregir "fin" si el usuario ya definió fecha de fin (no forzar fin al cambiar inicio).
+    if (ed) {
+      const tsEnd = this.toTimestampFromPrefix('ends_at');
+      if (sd && !Number.isNaN(tsStart) && !Number.isNaN(tsEnd) && tsEnd < tsStart) {
+        this.raffleForm.controls['ends_at_date'].setValue(new Date(sd.getFullYear(), sd.getMonth(), sd.getDate()));
+        this.copyTimeParts('starts_at', 'ends_at');
+      }
     }
     const tsEnd2 = this.toTimestampFromPrefix('ends_at');
-    const ed = this.raffleForm.controls['ends_at_date'].value as Date | null;
-    if (ed && !Number.isNaN(tsStart) && !Number.isNaN(tsDraw) && tsDraw < tsEnd2) {
-      this.raffleForm.controls['draw_at_date'].setValue(new Date(ed.getFullYear(), ed.getMonth(), ed.getDate()));
+    const edAfter = this.raffleForm.controls['ends_at_date'].value as Date | null;
+    if (edAfter && !Number.isNaN(tsStart) && !Number.isNaN(tsDraw) && !Number.isNaN(tsEnd2) && tsDraw < tsEnd2) {
+      this.raffleForm.controls['draw_at_date'].setValue(
+        new Date(edAfter.getFullYear(), edAfter.getMonth(), edAfter.getDate()),
+      );
       this.copyTimeParts('ends_at', 'draw_at');
     }
   }
@@ -683,6 +727,7 @@ export class RafflesComponent {
       status: value.status,
       starts_at: startsAt,
       show_available_tickets: !!value.show_available_tickets,
+      show_ends_at: !!value.show_ends_at,
     };
     if (endsAt) payload.ends_at = endsAt;
     if (drawAt) payload.draw_at = drawAt;

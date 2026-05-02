@@ -1,0 +1,236 @@
+:host {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Ocupa todo el ancho del área principal; min-width:0 evita recorte en flex */
+.usd-root {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.usd-head {
+  margin-bottom: 1.25rem;
+  min-width: 0;
+}
+
+.usd-head > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.usd-head-row {
+  margin-bottom: 1rem;
+}
+
+.panel {
+  background: var(--rl-surface, #fff);
+  border-radius: 0.85rem;
+  border: 1px solid var(--rl-border, #e6e8ed);
+  min-width: 0;
+  /* No usar overflow:hidden: recorta texto/HTML de Quill que sobresale */
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+:host-context(html[data-theme='dark']) .panel {
+  background: #1a222c;
+  border-color: #2d3848;
+}
+
+.usd-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 0.4rem 0.65rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--rl-border, #e6e8ed);
+  background: var(--rl-surface, #fff);
+  color: var(--rl-cyan, #05b8f3);
+  cursor: pointer;
+}
+
+.usd-back:hover {
+  border-color: color-mix(in srgb, var(--rl-cyan, #05b8f3) 40%, var(--rl-border, #e6e8ed));
+}
+
+.usd-state {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--rl-muted, #5c6370);
+}
+
+.usd-error {
+  margin: 0 0 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.65rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.usd-retry {
+  font: inherit;
+  font-weight: 700;
+  padding: 0.45rem 0.85rem;
+  border-radius: 0.5rem;
+  border: 1px solid #d9deea;
+  background: #fff;
+  cursor: pointer;
+}
+
+.usd-title {
+  margin: 0;
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--rl-navy, #04057a);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.usd-meta {
+  margin: 0.35rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--rl-muted, #5c6370);
+}
+
+.usd-pill {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+}
+
+.usd-panel .panel-b {
+  padding: 1rem 1.15rem;
+  min-width: 0;
+}
+
+.usd-body-wrap {
+  min-width: 0;
+}
+
+.usd-body {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--rl-text, #1a1d26);
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Contenido enriquecido (Quill / HTML): listas, párrafos, encabezados */
+:host ::ng-deep .usd-body p {
+  margin: 0 0 0.75rem;
+  white-space: normal;
+  max-width: 100%;
+}
+
+:host ::ng-deep .usd-body p:last-child {
+  margin-bottom: 0;
+}
+
+:host ::ng-deep .usd-body li {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+:host ::ng-deep .usd-body ul,
+:host ::ng-deep .usd-body ol {
+  max-width: 100%;
+  padding-left: 1.35rem;
+  box-sizing: border-box;
+}
+
+:host ::ng-deep .usd-body h1,
+:host ::ng-deep .usd-body h2,
+:host ::ng-deep .usd-body h3,
+:host ::ng-deep .usd-body h4 {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  margin: 0.85rem 0 0.5rem;
+}
+
+:host ::ng-deep .usd-body h1:first-child,
+:host ::ng-deep .usd-body h2:first-child,
+:host ::ng-deep .usd-body h3:first-child {
+  margin-top: 0;
+}
+
+/* Separación cuando el HTML pega negrita al texto siguiente */
+:host ::ng-deep .usd-body strong,
+:host ::ng-deep .usd-body b {
+  margin-right: 0.2em;
+}
+
+:host ::ng-deep .usd-body a {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+:host ::ng-deep .usd-body pre,
+:host ::ng-deep .usd-body code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+:host ::ng-deep .usd-body table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+:host ::ng-deep .usd-body td,
+:host ::ng-deep .usd-body th {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+:host-context(html[data-theme='dark']) .usd-title {
+  color: #b8c8f0;
+}
+
+:host-context(html[data-theme='dark']) .usd-meta {
+  color: #9aa0a6;
+}
+
+:host-context(html[data-theme='dark']) .usd-back {
+  background: #1a222c;
+  border-color: #2d3848;
+  color: #6ecff9;
+}
+
+:host-context(html[data-theme='dark']) .usd-body {
+  color: #e8eaed;
+}
+
+:host-context(html[data-theme='dark']) .usd-error {
+  background: #2a1518;
+  border-color: #5c2a2a;
+  color: #fca5a5;
+}

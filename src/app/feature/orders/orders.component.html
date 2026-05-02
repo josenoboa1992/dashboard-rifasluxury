@@ -1,7 +1,15 @@
 <div class="page-head">
-  <div>
-    <h1>Órdenes</h1>
-    <p>Compras de boletos y validación de pagos</p>
+  <div class="page-head__lead">
+    <div class="page-head__titles">
+      <h1>Órdenes</h1>
+      <p>
+        @if (filterRaffleId() === null) {
+          Elige una rifa para ver sus pedidos
+        } @else {
+          Compras de boletos y validación de pagos
+        }
+      </p>
+    </div>
   </div>
   @if (isAdmin()) {
     <div class="order-block-toggle" [class.order-block-toggle--blocked]="ordersBlocked()">
@@ -34,10 +42,169 @@
   }
 </div>
 
-@if (error()) {
+@if (filterRaffleId() !== null) {
+  <div class="orders-raffle-filter-bar" role="status" aria-label="Filtro por rifa">
+    <div class="orders-raffle-filter-bar__text">
+      <mat-icon class="orders-raffle-filter-bar__icon" aria-hidden="true">local_activity</mat-icon>
+      <span>
+        @if (raffleFilterTitleLoading()) {
+          Cargando datos de la rifa…
+        } @else {
+          Mostrando pedidos de
+          <strong class="orders-raffle-filter-bar__title">{{ raffleFilterTitle() ?? ('Rifa #' + filterRaffleId()) }}</strong>
+        
+        }
+      </span>
+    </div>
+    <button type="button" class="btn btn-ghost orders-raffle-filter-bar__back" (click)="clearRaffleFilter()">
+      <mat-icon aria-hidden="true">arrow_back</mat-icon>
+      <span>Elegir otra rifa</span>
+    </button>
+  </div>
+}
+
+@if (filterRaffleId() === null) {
+  <section class="panel orders-raffle-picker" aria-label="Elegir rifa">
+    <h2 class="orders-raffle-picker__title">Rifas disponibles</h2>
+    <p class="orders-raffle-picker__hint">Haz clic en una fila para abrir los pedidos de esa rifa.</p>
+
+    @if (pickerError()) {
+      <div class="list-error" role="alert">{{ pickerError() }}</div>
+    }
+
+    @if (!pickerError()) {
+      <div class="toolbar">
+        <div class="total">
+          Total: {{ pickerTotal() }}
+          <span class="range">
+            | Mostrando {{ pickerFromItem() }}-{{ pickerToItem() }} de {{ pickerTotal() }}
+          </span>
+        </div>
+        <div class="toolbar-actions">
+          <div class="search">
+            <input
+              type="text"
+              placeholder="Buscar por titulo o estado..."
+              [value]="pickerSearchTerm()"
+              (input)="onPickerSearchInput($any($event.target).value)"
+            />
+            @if (pickerSearchTerm().trim()) {
+              <button type="button" class="btn-inline" (click)="clearPickerSearch()">Limpiar</button>
+            }
+          </div>
+          <select
+            class="status-filter"
+            [value]="pickerStatusFilter()"
+            (change)="onPickerStatusFilterChange($any($event.target).value)"
+          >
+            <option value="">Todos</option>
+            <option value="draft">Borrador</option>
+            <option value="active">Activa</option>
+            <option value="completed">Completada</option>
+            <option value="cancelled">Cancelada</option>
+          </select>
+          <button type="button" class="btn btn-ghost refresh" (click)="loadRafflesForPicker()" [disabled]="pickerLoading()">
+            @if (pickerLoading()) {
+              <app-spinner [size]="16" [stroke]="3" label="Cargando rifas" />
+              Cargando...
+            } @else {
+              Recargar
+            }
+          </button>
+        </div>
+      </div>
+
+      <div class="table-wrap orders-raffle-picker__table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Imagen</th>
+              <th>Titulo</th>
+              <th>Estado</th>
+              <th>Precio boleto</th>
+              <th>Boletos meta</th>
+              <th>Boletos vendidos</th>
+              <th>Disponibles</th>
+              <th>Fin venta</th>
+              <th>Fecha sorteo</th>
+            </tr>
+          </thead>
+          <tbody>
+            @if (pickerLoading() && visiblePickerRaffles().length === 0) {
+              <tr>
+                <td colspan="10" class="orders-raffle-picker__loading-cell">
+                  <app-spinner [size]="28" [stroke]="3" label="Cargando rifas" />
+                  <span>Cargando rifas…</span>
+                </td>
+              </tr>
+            } @else if (!pickerLoading() && visiblePickerRaffles().length === 0) {
+              <tr>
+                <td colspan="10" class="empty">No hay rifas para mostrar.</td>
+              </tr>
+            } @else {
+              @for (raffle of visiblePickerRaffles(); track raffle.id) {
+                <tr
+                  class="orders-raffle-picker__row--clickable"
+                  (click)="selectRaffleForOrders(raffle)"
+                  title="Abrir pedidos de esta rifa"
+                >
+                  <td>{{ raffle.id }}</td>
+                  <td>
+                    @if (pickerRaffleImageUrl(raffle); as imageUrl) {
+                      <img class="raffle-avatar" [src]="imageUrl" [alt]="raffle.title" />
+                    } @else {
+                      <span class="avatar-fallback">Sin imagen</span>
+                    }
+                  </td>
+                  <td>{{ raffle.title }}</td>
+                  <td>{{ pickerRaffleStatusLabel(raffle.status) }}</td>
+                  <td class="nowrap">{{ (raffle.ticket_price | formatMoney) || '—' }}</td>
+                  <td>{{ raffle.ticket_goal }}</td>
+                  <td>{{ raffle.tickets_sold_count ?? '—' }}</td>
+                  <td>{{ raffle.tickets_available_count ?? '—' }}</td>
+                  <td>{{ pickerEndsAtCell(raffle) }}</td>
+                  <td>{{ pickerDrawAtCell(raffle) }}</td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pagination orders-raffle-picker__pagination">
+        <button type="button" class="btn-inline" (click)="pickerGoPrevPage()" [disabled]="pickerLoading() || pickerCurrentPage() <= 1">
+          Anterior
+        </button>
+        @for (page of pickerPageNumbers(); track page) {
+          <button
+            type="button"
+            class="btn-inline"
+            [class.active-page]="page === pickerCurrentPage()"
+            (click)="pickerGoToPage(page)"
+            [disabled]="pickerLoading()"
+          >
+            {{ page }}
+          </button>
+        }
+        <button
+          type="button"
+          class="btn-inline"
+          (click)="pickerGoNextPage()"
+          [disabled]="pickerLoading() || pickerCurrentPage() >= pickerLastPage()"
+        >
+          Siguiente
+        </button>
+      </div>
+    }
+  </section>
+}
+
+@if (filterRaffleId() !== null && error()) {
   <div class="list-error" role="alert">{{ error() }}</div>
 }
 
+@if (filterRaffleId() !== null) {
 <section class="panel" aria-label="Listado de órdenes">
   <div class="orders-insights" aria-label="Resumen y filtros por estado">
     <div class="orders-insights__chart">
@@ -47,10 +214,27 @@
           <app-spinner [size]="18" [stroke]="3" label="Actualizando conteos" />
         }
       </div>
-      @if (statusCountsLoading() && !chartInsightsLoaded()) {
-        <div class="orders-insights__skeleton">
-          <app-spinner [size]="28" [stroke]="3" label="Cargando totales" />
-          <span>Cargando totales…</span>
+      @if (chartInsightsSkeletonVisible()) {
+        <div class="orders-insights__chart-skel" role="status" aria-live="polite" aria-busy="true">
+          <span class="orders-sr-only">Cargando distribución de pedidos…</span>
+          <div class="orders-chart-layout orders-insights__chart-skel-layout">
+            <div class="orders-insights__sk-donut-wrap">
+              <div class="orders-insights__sk-donut-ring orders-insights__sk-shimmer-fill orders-insights__sk-donut-ring--tone"></div>
+              <div class="orders-insights__sk-donut-center">
+                <span class="orders-insights__sk-pill orders-insights__sk-pill--val orders-insights__sk-shimmer-fill"></span>
+                <span class="orders-insights__sk-pill orders-insights__sk-pill--sub orders-insights__sk-shimmer-fill"></span>
+              </div>
+            </div>
+            <ul class="orders-insights__sk-legend" aria-hidden="true">
+              @for (_ of [1, 2]; track $index) {
+                <li class="orders-insights__sk-legend-item">
+                  <span class="orders-insights__sk-swatch"></span>
+                  <span class="orders-insights__sk-bar"></span>
+                  <span class="orders-insights__sk-num"></span>
+                </li>
+              }
+            </ul>
+          </div>
         </div>
       } @else if (chartInsightsLoaded() && totalOrders() === 0 && availableTickets() === 0) {
         <p class="orders-insights__empty">No hay pedidos registrados o no se pudieron cargar los totales.</p>
@@ -84,28 +268,40 @@
 
     <div class="orders-insights__tabs">
       <span class="orders-insights__title orders-insights__title--tabs">Filtro de ordenes</span>
-      <div class="status-segment-scroll">
-        <div class="status-segment" role="tablist" aria-label="Filtrar pedidos por estado">
-          @for (tab of statusTabs; track tab.filterValue) {
-            <button
-              type="button"
-              role="tab"
-              class="status-segment__btn"
-              [class.status-segment__btn--active]="statusFilter() === tab.filterValue"
-              [attr.aria-selected]="statusFilter() === tab.filterValue"
-              (click)="onStatusFilterChange(tab.filterValue)"
-            >
-              <span class="status-segment__label">{{ tab.label }}</span>
-              <span
-                class="status-segment__badge"
-                [class.status-segment__badge--active]="statusFilter() === tab.filterValue"
-              >
-                {{ statusTabBadgeCount(tab.filterValue) | number: '1.0-0' }}
-              </span>
-            </button>
+      @if (chartInsightsSkeletonVisible()) {
+        <div class="orders-insights__tabs-skel" role="status" aria-live="polite" aria-busy="true">
+          <span class="orders-sr-only">Cargando filtros por estado…</span>
+          @for (_ of [1, 2, 3, 4]; track $index) {
+            <div class="orders-insights__tabs-skel-row">
+              <span class="orders-insights__tabs-skel-label"></span>
+              <span class="orders-insights__tabs-skel-badge"></span>
+            </div>
           }
         </div>
-      </div>
+      } @else {
+        <div class="status-segment-scroll">
+          <div class="status-segment" role="tablist" aria-label="Filtrar pedidos por estado">
+            @for (tab of statusTabs; track tab.filterValue) {
+              <button
+                type="button"
+                role="tab"
+                class="status-segment__btn"
+                [class.status-segment__btn--active]="statusFilter() === tab.filterValue"
+                [attr.aria-selected]="statusFilter() === tab.filterValue"
+                (click)="onStatusFilterChange(tab.filterValue)"
+              >
+                <span class="status-segment__label">{{ tab.label }}</span>
+                <span
+                  class="status-segment__badge"
+                  [class.status-segment__badge--active]="statusFilter() === tab.filterValue"
+                >
+                  {{ statusTabBadgeCount(tab.filterValue) | number: '1.0-0' }}
+                </span>
+              </button>
+            }
+          </div>
+        </div>
+      }
     </div>
   </div>
 
@@ -117,7 +313,7 @@
       <div class="search">
         <input
           type="text"
-          placeholder="Buscar en lo cargado: cliente, cédula, rifa…"
+          placeholder="Buscar pedidos (cliente, cédula, rifa…)"
           [value]="searchTerm()"
           (input)="onSearchInput($any($event.target).value)"
         />
@@ -205,7 +401,6 @@
             }
             <th>ID</th>
             <th>Cliente</th>
-            <th>Cédula</th>
             <th>Banco</th>
             <th>Rifa</th>
             <th>Cantidad</th>
@@ -213,7 +408,6 @@
             <th>Comprobante</th>
             <th>Estado</th>
             <th>Creado</th>
-            <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -229,13 +423,7 @@
               <td [attr.colspan]="ordersTableColspan()" class="empty">No hay pedidos para mostrar.</td>
             </tr>
           } @else {
-            @for (group of visibleOrderGroups(); track group.bank_name) {
-              <tr class="orders-bank-group-row">
-                <td [attr.colspan]="ordersTableColspan()" class="orders-bank-group-cell">
-                  <span class="orders-bank-group-label">{{ group.bank_name }}</span>
-                </td>
-              </tr>
-              @for (order of group.orders; track order.id) {
+            @for (order of visibleOrders(); track order.id) {
               <tr class="order-table-row--clickable" (click)="openDetail(order)">
                 @if (isAdmin()) {
                   <td class="orders-col-check" (click)="$event.stopPropagation()">
@@ -255,9 +443,10 @@
                     <span class="cell-muted">{{ order.email }}</span>
                   </div>
                 </td>
-                <td>{{ (order.cedula | drCedula) || '—' }}</td>
-                <td>{{ orderBankDisplay(order, group.bank_name) }}</td>
-                <td>{{ order.raffle?.title ?? '—' }}</td>
+                <td>{{ orderBankDisplay(order) }}</td>
+                <td class="cell-raffle" [attr.title]="orderRaffleLabel(order)">
+                  <span class="cell-raffle__text">{{ orderRaffleLabel(order) }}</span>
+                </td>
                 <td>{{ ticketsCount(order) ?? '—' }}</td>
                 <td class="nowrap">{{ (order.total_amount | formatMoney) || '—' }}</td>
                 <td>
@@ -291,33 +480,7 @@
                   <span [class]="statusClass(order.status)">{{ statusLabel(order.status) }}</span>
                 </td>
                 <td class="nowrap">{{ order.created_at | formatDateTime }}</td>
-                <td>
-                  <div class="table-actions">
-                    <button
-                      type="button"
-                      class="action-icon action-icon--view"
-                      (click)="openDetail(order); $event.stopPropagation()"
-                      aria-label="Ver pedido"
-                      title="Ver"
-                    >
-                      <mat-icon aria-hidden="true">visibility</mat-icon>
-                    </button>
-                    @if (canDeleteOrder(order)) {
-                      <button
-                        type="button"
-                        class="action-icon action-icon--delete"
-                        (click)="openDeleteConfirm(order); $event.stopPropagation()"
-                        [disabled]="reviewing() || deleting()"
-                        aria-label="Eliminar pedido"
-                        title="Eliminar"
-                      >
-                        <mat-icon aria-hidden="true">delete_outline</mat-icon>
-                      </button>
-                    }
-                  </div>
-                </td>
               </tr>
-              }
             }
           }
         </tbody>
@@ -345,7 +508,6 @@
             <th scope="col" class="orders-table-mobile__th orders-table-mobile__col-cliente">Cliente</th>
             <th scope="col" class="orders-table-mobile__th orders-table-mobile__col-cantidad">Cant.</th>
             <th scope="col" class="orders-table-mobile__th orders-table-mobile__col-estado">Estado</th>
-            <th scope="col" class="orders-table-mobile__th orders-table-mobile__col-accion">Acción</th>
           </tr>
         </thead>
         <tbody>
@@ -361,13 +523,7 @@
               <td [attr.colspan]="ordersMobileColspan()" class="orders-table-mobile__empty">No hay pedidos para mostrar.</td>
             </tr>
           } @else {
-            @for (group of visibleOrderGroups(); track group.bank_name) {
-              <tr class="orders-bank-group-row orders-bank-group-row--mobile">
-                <td [attr.colspan]="ordersMobileColspan()" class="orders-bank-group-cell">
-                  <span class="orders-bank-group-label">{{ group.bank_name }}</span>
-                </td>
-              </tr>
-              @for (order of group.orders; track order.id) {
+            @for (order of visibleOrders(); track order.id) {
               <tr class="order-table-row--clickable" (click)="openDetail(order)">
                 @if (isAdmin()) {
                   <td class="orders-table-mobile__td orders-table-mobile__col-check" (click)="$event.stopPropagation()">
@@ -386,8 +542,8 @@
                   <span class="orders-table-mobile__cliente" [attr.title]="order.customer_name">{{
                     order.customer_name
                   }}</span>
-                  @if (orderBankDisplay(order, group.bank_name) !== '—') {
-                    <span class="orders-table-mobile__bank">{{ orderBankDisplay(order, group.bank_name) }}</span>
+                  @if (orderBankDisplay(order) !== '—') {
+                    <span class="orders-table-mobile__bank">{{ orderBankDisplay(order) }}</span>
                   }
                 </td>
                 <td class="orders-table-mobile__td orders-table-mobile__col-cantidad">
@@ -398,33 +554,7 @@
                     statusLabel(order.status)
                   }}</span>
                 </td>
-                <td class="orders-table-mobile__td orders-table-mobile__col-accion" (click)="$event.stopPropagation()">
-                  <div class="table-actions table-actions--mobile-row">
-                    <button
-                      type="button"
-                      class="action-icon action-icon--view action-icon--mobile-table"
-                      (click)="openDetail(order); $event.stopPropagation()"
-                      aria-label="Ver pedido"
-                      title="Ver"
-                    >
-                      <mat-icon aria-hidden="true">visibility</mat-icon>
-                    </button>
-                    @if (canDeleteOrder(order)) {
-                      <button
-                        type="button"
-                        class="action-icon action-icon--delete action-icon--mobile-table"
-                        (click)="openDeleteConfirm(order); $event.stopPropagation()"
-                        [disabled]="reviewing() || deleting()"
-                        aria-label="Eliminar pedido"
-                        title="Eliminar"
-                      >
-                        <mat-icon aria-hidden="true">delete_outline</mat-icon>
-                      </button>
-                    }
-                  </div>
-                </td>
               </tr>
-              }
             }
           }
         </tbody>
@@ -445,6 +575,7 @@
     }
   </div>
 </section>
+}
 
 @if (voucherPreviewOpen()) {
   <div class="voucher-preview-backdrop" role="presentation" (click)="closeVoucherPreview()">
@@ -510,15 +641,13 @@
             <app-spinner [size]="32" [stroke]="3" label="Cargando pedido" />
             <span>Cargando…</span>
           </div>
-        } @else if (detailError() && !orderDetail()) {
-          <div class="list-error">{{ detailError() }}</div>
         } @else {
           @if (orderDetail(); as detail) {
-          @if (detailError()) {
-            <div class="list-error order-detail-sheet__alert">{{ detailError() }}</div>
-          }
+            @if (detailError()) {
+              <div class="list-error order-detail-sheet__alert">{{ detailError() }}</div>
+            }
 
-          <div class="detail-kv">
+            <div class="detail-kv">
             @if (detail.tickets?.length) {
               <div class="detail-kv__row">
                 <span class="detail-kv__k">Números</span>
@@ -595,10 +724,6 @@
                 <span class="detail-kv__v">{{ detail.bank_name }}</span>
               </div>
             }
-            <div class="detail-kv__row">
-              <span class="detail-kv__k">Cédula</span>
-              <span class="detail-kv__v">{{ (detail.cedula | drCedula) || '—' }}</span>
-            </div>
             <div class="detail-kv__row">
               <span class="detail-kv__k">Vence</span>
               <span class="detail-kv__v">{{ detail.expires_at ? (detail.expires_at | formatDateTime) : '—' }}</span>
@@ -729,6 +854,10 @@
               </div>
             </div>
           }
+          } @else if (detailError()) {
+            <div class="list-error">{{ detailError() }}</div>
+          } @else {
+            <p class="order-detail-sheet__empty">No se pudieron mostrar los datos del pedido.</p>
           }
         }
       </div>

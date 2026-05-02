@@ -1,4 +1,5 @@
 @import '@angular/material/prebuilt-themes/azure-blue.css';
+@import 'quill/dist/quill.snow.css';
 
 *,
 *::before,
@@ -150,6 +151,12 @@ mat-datepicker-content,
 }
 .action-icon--view:hover:not(:disabled) {
   background: rgba(44, 53, 82, 0.12);
+}
+.action-icon--orders {
+  color: #1565c0;
+}
+.action-icon--orders:hover:not(:disabled) {
+  background: rgba(21, 101, 192, 0.12);
 }
 .action-icon--tickets {
   color: #156c38;

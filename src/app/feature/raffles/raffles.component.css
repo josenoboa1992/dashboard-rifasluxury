@@ -67,6 +67,30 @@
 
 .datetime-block.full { grid-column:1 / -1; display:grid; gap:.35rem; }
 .datetime-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.25fr); gap:.75rem; align-items:flex-start; }
+
+.ends-at-clear {
+  display: inline-block;
+  margin: 0 0 0.35rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #04057a;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ends-at-clear:hover:not(:disabled) {
+  color: #0608a8;
+}
+
+.ends-at-clear:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  text-decoration: none;
+}
 .datetime-block mat-form-field.datetime-date { width:100%; }
 .datetime-time-group { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; align-items:flex-start; width:100%; }
 .datetime-time-group .time-hour,
@@ -188,6 +212,14 @@
 :host-context(html[data-theme='dark']) .input-help,
 :host-context(html[data-theme='dark']) .toggle-field .input-help {
   color: #9aa0a6;
+}
+
+:host-context(html[data-theme='dark']) .ends-at-clear {
+  color: #a5b4fc;
+}
+
+:host-context(html[data-theme='dark']) .ends-at-clear:hover:not(:disabled) {
+  color: #c7d2fe;
 }
 
 :host-context(html[data-theme='dark']) .money-readonly {

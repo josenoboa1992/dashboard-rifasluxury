@@ -5,28 +5,41 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { NavigationEnd, Router } from '@angular/router';
-import { from, merge, of } from 'rxjs';
-import { catchError, concatMap, distinctUntilChanged, filter, finalize, map, take, toArray } from 'rxjs/operators';
+import { EMPTY, from, merge, of, Subject } from 'rxjs';
+import type { Observable } from 'rxjs';
+import {
+  catchError,
+  concatMap,
+  debounceTime,
+  distinctUntilChanged,
+  exhaustMap,
+  filter,
+  finalize,
+  map,
+  take,
+  tap,
+  toArray,
+} from 'rxjs/operators';
 
 import { environment } from '../../../environments/environment';
 import { LoginUser } from '../../core/auth/models/login-response.model';
 import { AuthService } from '../../core/auth/services/auth.service';
 import { ConfirmDialogComponent } from '../../core/ui/confirm-dialog/confirm-dialog.component';
-import { orderStatusLabelEs } from '../../core/helpers/ui-labels.es';
+import { orderStatusLabelEs, raffleStatusLabelEs } from '../../core/helpers/ui-labels.es';
 import { SpinnerComponent } from '../../core/ui/spinner/spinner.component';
 import { ToastService } from '../../core/ui/toast/toast.service';
 import { FormatDateTimePipe } from '../../core/pipes/format-date-time.pipe';
 import { FormatMoneyPipe } from '../../core/pipes/format-money.pipe';
-import { DrCedulaPipe } from '../../core/pipes/dr-cedula.pipe';
+import { formatDateTimeDisplay } from '../../core/helpers/date-format.helper';
 import { formatMoneyDop } from '../../core/helpers/money-format.helper';
 import { ChartsService } from '../../core/charts/services/charts.service';
+import { Raffle, RafflesService } from '../../core/raffles/services/raffles.service';
 import {
   BulkOrderDeleteSkipped,
-  mergeOrderBankGroups,
+  mergeOrderPages,
   Order,
-  OrderBankGroup,
-  orderGroupsFromPaginatedOrdersResponse,
   ORDERS_BULK_DELETE_MAX_IDS,
+  ordersFlatFromPaginatedResponse,
   OrdersService,
 } from '../../core/orders/services/orders.service';
 import { MatButtonModule } from '@angular/material/button';
@@ -47,7 +60,6 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
     ConfirmDialogComponent,
     FormatDateTimePipe,
     FormatMoneyPipe,
-    DrCedulaPipe,
     ClipboardModule,
     MatButtonModule,
     MatCheckboxModule,
@@ -64,19 +76,36 @@ export class OrdersComponent implements OnInit {
   readonly loading = signal(false);
   readonly loadingMore = signal(false);
   readonly error = signal<string | null>(null);
-  /** Pedidos agrupados por banco (respuesta actual del listado admin). */
-  readonly orderGroups = signal<OrderBankGroup[]>([]);
+  /** Pedidos cargados (lista plana; el banco va en `order.bank_name`). */
+  readonly orderList = signal<Order[]>([]);
   readonly searchTerm = signal('');
   /** Filtro enviado al API (`''` = todos). */
   readonly statusFilter = signal('');
+  /** Filtro por rifa (`?raffle_id=` en la URL). */
+  readonly filterRaffleId = signal<number | null>(null);
+  /** Título de la rifa del filtro (GET admin) para el cartel. */
+  readonly raffleFilterTitle = signal<string | null>(null);
+  readonly raffleFilterTitleLoading = signal(false);
+  /** Paso 1: listado de rifas para elegir antes de cargar pedidos. */
+  readonly pickerRaffles = signal<Raffle[]>([]);
+  readonly pickerLoading = signal(false);
+  readonly pickerError = signal<string | null>(null);
+  readonly pickerSearchTerm = signal('');
+  readonly pickerStatusFilter = signal('');
+  readonly pickerCurrentPage = signal(1);
+  readonly pickerLastPage = signal(1);
+  readonly pickerPerPage = signal(25);
+  readonly pickerTotal = signal(0);
+  readonly pickerFromItem = signal(0);
+  readonly pickerToItem = signal(0);
   readonly lastLoadedPage = signal(0);
   readonly lastPage = signal(1);
   readonly perPage = signal(25);
   readonly total = signal(0);
 
-  /** Carga del chart global + badges de pestañas. */
+  /** Carga del chart + badges de pestañas (filtrado por `filterRaffleId` cuando hay rifa). */
   readonly statusCountsLoading = signal(false);
-  /** Total de pedidos (todas las rifas) desde `/api/admin/charts/orders-distribution`. */
+  /** Total de pedidos desde `/api/admin/charts/orders-distribution` (por rifa o agregado). */
   readonly totalOrders = signal(0);
   /** Conteos de ÓRDENES (para badges de pestañas). */
   readonly pendingOrders = signal(0);
@@ -89,10 +118,15 @@ export class OrdersComponent implements OnInit {
   readonly countRevisando = signal(0);
   /** Tickets en estado confirmado (Pagado) para el gráfico. */
   readonly countPagado = signal(0);
-  /** Cupo disponible total (suma pool restante de todas las rifas). */
+  /** Cupo disponible (en la rifa filtrada o agregado según el API). */
   readonly availableTickets = signal(0);
   /** Evita “parpadeo” vacío mientras llega el primer payload del chart. */
   readonly chartInsightsLoaded = signal(false);
+
+  /** Skeleton del bloque Distribución + Filtro hasta el primer `ordersDistribution`. */
+  readonly chartInsightsSkeletonVisible = computed(
+    () => this.statusCountsLoading() && !this.chartInsightsLoaded(),
+  );
 
   // ── Bloqueo de órdenes públicas ──────────────────────────────
   /** Estado actual del bloqueo (toggle). */
@@ -194,31 +228,57 @@ export class OrdersComponent implements OnInit {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly auth = inject(AuthService);
-  /** Invalida respuestas de `loadNextPage` si hubo `reloadFromStart` entretanto. */
+  /** Invalida respuestas de append si hubo `reloadFromStart` entretanto. */
   private listRequestGeneration = 0;
+
+  /**
+   * Peticiones de “siguiente página” encoladas; `exhaustMap` asegura una sola carga activa
+   * (no se mezcla otra página hasta terminar la anterior y fusionar grupos).
+   */
+  private readonly loadMoreRequests$ = new Subject<void>();
+  /**
+   * Tras mezclar bloques de banco, se bloquea un nuevo "cargar más" por scroll
+   * hasta que el DOM pinta (doble rAF) y un pequeño margen (ms) para no encadenar
+   * otra petición mientras aún se asienta la agrupación.
+   */
+  private nextOrdersScrollLoadAllowedAt = 0;
+  private static readonly ORDERS_SCROLL_LOAD_COOLDOWN_MS = 320;
+
   readonly reviewNotes = this.fb.nonNullable.control('');
 
   /** Igual que en el dashboard: `role === 'admin'` o `is_admin === true`. */
   readonly sessionUser = signal<LoginUser | null>(this.auth.getSessionUser());
   readonly isAdmin = computed(() => OrdersComponent.userIsAdmin(this.sessionUser()));
 
-  readonly ordersFlat = computed(() => this.orderGroups().flatMap((g) => g.orders));
+  /** Todos los pedidos ya traídos del servidor (scroll infinito). */
+  readonly ordersFlat = computed(() => this.orderList());
 
-  readonly visibleOrderGroups = computed(() => {
-    const term = this.searchTerm().trim().toLowerCase();
-    if (!term) return this.orderGroups();
-    return this.orderGroups()
-      .map((g) => ({
-        bank_name: g.bank_name,
-        orders: g.orders.filter((o) => {
-          const hay = `${o.customer_name} ${o.cedula} ${o.email} ${o.phone} ${o.status} ${o.raffle?.title ?? ''} ${o.bank_name ?? ''} ${o.id}`.toLowerCase();
-          return hay.includes(term);
-        }),
-      }))
-      .filter((g) => g.orders.length > 0);
+  /** Lista mostrada: coincide con lo devuelto por el API (`search` en servidor + paginación). */
+  readonly visibleOrders = computed(() => this.orderList());
+
+  /** Dispara recarga del listado tras escribir en el buscador (evita una petición por tecla). */
+  private readonly orderSearchDebounce$ = new Subject<void>();
+
+  readonly visiblePickerRaffles = computed(() => {
+    const term = this.pickerSearchTerm().trim().toLowerCase();
+    const rows = this.pickerRaffles();
+    if (!term) return rows;
+    return rows.filter((r) => {
+      const hay = `${r.id} ${r.title} ${r.status} ${r.ticket_price}`.toLowerCase();
+      return hay.includes(term);
+    });
   });
 
-  readonly visibleOrders = computed(() => this.visibleOrderGroups().flatMap((g) => g.orders));
+  /** Paginación del selector (mismo criterio que en Rifas). */
+  readonly pickerPageNumbers = computed(() => {
+    const current = this.pickerCurrentPage();
+    const last = this.pickerLastPage();
+    const start = Math.max(1, current - 2);
+    const end = Math.min(last, current + 2);
+    const pages: number[] = [];
+    for (let i = start; i <= end; i += 1) pages.push(i);
+    return pages;
+  });
 
   readonly rejectConfirmMessage = computed(() => {
     const o = this.orderDetail();
@@ -244,7 +304,7 @@ export class OrdersComponent implements OnInit {
     return `¿Eliminar definitivamente ${n} pedido(s) seleccionado(s)?${batchNote} Esta acción no se puede deshacer.`;
   });
 
-  /** Estado del checkbox “seleccionar visibles” (lista filtrada localmente). */
+  /** Estado del checkbox “seleccionar visibles”. */
   readonly selectAllVisibleState = computed<'all' | 'some' | 'none'>(() => {
     const visible = this.visibleOrders();
     if (!visible.length) return 'none';
@@ -261,6 +321,7 @@ export class OrdersComponent implements OnInit {
   constructor(
     private readonly ordersService: OrdersService,
     private readonly chartsService: ChartsService,
+    private readonly rafflesService: RafflesService,
     private readonly toast: ToastService,
     private readonly router: Router,
   ) {
@@ -275,9 +336,61 @@ export class OrdersComponent implements OnInit {
         takeUntilDestroyed(),
       )
       .subscribe((orderId) => {
-        if (orderId == null) return;
+        if (orderId == null) {
+          this.resetDetailPanelState();
+          return;
+        }
         this.loadOrderDetail(orderId);
       });
+
+    merge(
+      of(null),
+      this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)),
+    )
+      .pipe(
+        map(() => this.parseRaffleIdFromUrl()),
+        distinctUntilChanged(),
+        takeUntilDestroyed(),
+      )
+      .subscribe((raffleId) => {
+        this.filterRaffleId.set(raffleId);
+        this.loadRaffleFilterTitle(raffleId);
+        this.refreshStatusCounts();
+        if (raffleId == null) {
+          this.listRequestGeneration += 1;
+          this.orderList.set([]);
+          this.total.set(0);
+          this.lastLoadedPage.set(0);
+          this.lastPage.set(1);
+          this.loading.set(false);
+          this.loadingMore.set(false);
+          this.error.set(null);
+          this.clearBulkSelection();
+          this.searchTerm.set('');
+          this.pickerSearchTerm.set('');
+          this.pickerStatusFilter.set('');
+          this.pickerCurrentPage.set(1);
+          this.loadRafflesForPicker(1);
+        } else {
+          this.reloadFromStart();
+        }
+      });
+
+    this.loadMoreRequests$
+      .pipe(exhaustMap(() => this.appendNextOrdersPage$()), takeUntilDestroyed())
+      .subscribe();
+
+    this.orderSearchDebounce$
+      .pipe(debounceTime(400), takeUntilDestroyed())
+      .subscribe(() => {
+        if (this.filterRaffleId() == null) return;
+        this.reloadFromStart();
+      });
+  }
+
+  private ordersApiSearch(): string | null {
+    const t = this.searchTerm().trim();
+    return t === '' ? null : t;
   }
 
   private parseOrderIdFromUrl(): number | null {
@@ -289,17 +402,180 @@ export class OrdersComponent implements OnInit {
     return Number.isFinite(id) && id >= 1 ? id : null;
   }
 
+  private parseRaffleIdFromUrl(): number | null {
+    const tree = this.router.parseUrl(this.router.url);
+    const raw = tree.queryParams['raffle_id'];
+    const s = Array.isArray(raw) ? raw[0] : raw;
+    if (s == null || s === '') return null;
+    const id = Number.parseInt(String(s), 10);
+    return Number.isFinite(id) && id >= 1 ? id : null;
+  }
+
+  private loadRaffleFilterTitle(raffleId: number | null): void {
+    if (raffleId == null) {
+      this.raffleFilterTitle.set(null);
+      this.raffleFilterTitleLoading.set(false);
+      return;
+    }
+    this.raffleFilterTitleLoading.set(true);
+    this.rafflesService
+      .getRaffle(raffleId)
+      .pipe(
+        finalize(() => this.raffleFilterTitleLoading.set(false)),
+        catchError(() => of(null)),
+      )
+      .subscribe((r) => {
+        if (r && typeof r.title === 'string' && r.title.trim()) {
+          this.raffleFilterTitle.set(r.title.trim());
+        } else {
+          this.raffleFilterTitle.set(`Rifa #${raffleId}`);
+        }
+      });
+  }
+
+  private pickerLoadGeneration = 0;
+
+  /** Carga el listado de rifas (misma lógica que Rifas: una página a la vez). */
+  loadRafflesForPicker(page: number = this.pickerCurrentPage()): void {
+    this.pickerLoadGeneration += 1;
+    const gen = this.pickerLoadGeneration;
+    this.pickerLoading.set(true);
+    this.pickerError.set(null);
+    const status = this.pickerStatusFilter().trim();
+    this.rafflesService
+      .listRaffles(page, this.pickerPerPage(), status || undefined)
+      .pipe(
+        finalize(() => {
+          if (gen === this.pickerLoadGeneration) this.pickerLoading.set(false);
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          if (gen !== this.pickerLoadGeneration) return;
+          this.pickerRaffles.set(res.data ?? []);
+          this.pickerCurrentPage.set(res.current_page ?? page);
+          this.pickerLastPage.set(res.last_page ?? 1);
+          this.pickerPerPage.set(res.per_page ?? 25);
+          const from = res as { from?: number | null; to?: number | null };
+          this.pickerFromItem.set(from.from ?? 0);
+          this.pickerToItem.set(from.to ?? 0);
+          this.pickerTotal.set(res.total ?? 0);
+        },
+        error: (err) => {
+          if (gen !== this.pickerLoadGeneration) return;
+          this.pickerRaffles.set([]);
+          this.pickerError.set(
+            String(
+              err?.error?.message || err?.error?.detail || 'No fue posible cargar la lista de rifas.',
+            ),
+          );
+        },
+      });
+  }
+
+  onPickerSearchInput(value: string): void {
+    this.pickerSearchTerm.set(value);
+  }
+
+  onPickerStatusFilterChange(value: string): void {
+    this.pickerStatusFilter.set(value ?? '');
+    this.loadRafflesForPicker(1);
+  }
+
+  clearPickerSearch(): void {
+    this.pickerSearchTerm.set('');
+  }
+
+  pickerGoToPage(p: number): void {
+    if (p < 1 || p > this.pickerLastPage() || p === this.pickerCurrentPage()) return;
+    this.loadRafflesForPicker(p);
+  }
+
+  pickerGoPrevPage(): void {
+    this.pickerGoToPage(this.pickerCurrentPage() - 1);
+  }
+
+  pickerGoNextPage(): void {
+    this.pickerGoToPage(this.pickerCurrentPage() + 1);
+  }
+
+  selectRaffleForOrders(raffle: Raffle): void {
+    void this.router.navigate(['/dashboard'], {
+      queryParams: { view: 'orders', raffle_id: raffle.id },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  /** URL de imagen para la tarjeta del selector (mismo criterio que en rifas). */
+  pickerRaffleImageUrl(raffle: Raffle): string | null {
+    if (typeof raffle.banner_image === 'string' && raffle.banner_image.trim()) {
+      return raffle.banner_image;
+    }
+    const u = raffle.image?.url;
+    if (typeof u === 'string' && u.trim()) return u;
+    return null;
+  }
+
+  pickerRaffleStatusLabel(status: string | null | undefined): string {
+    return raffleStatusLabelEs(status);
+  }
+
+  /** Celdas de fechas (mismo criterio que `Rifas`). */
+  pickerEndsAtCell(raffle: Raffle): string {
+    const raw = raffle.ends_at as string | null | undefined;
+    if (raw == null || String(raw).trim() === '') return 'Pendiente';
+    return formatDateTimeDisplay(String(raw)) || 'Pendiente';
+  }
+
+  pickerDrawAtCell(raffle: Raffle): string {
+    const raw = raffle.draw_at as string | null | undefined;
+    if (raw == null || String(raw).trim() === '') return 'Pendiente';
+    return formatDateTimeDisplay(String(raw)) || 'Pendiente';
+  }
+
+  /** Quitar `raffle_id` de la URL (vuelve al selector de rifa). Cierra detalle de pedido si estaba abierto. */
+  clearRaffleFilter(): void {
+    void this.router.navigate(['/dashboard'], {
+      queryParams: { view: 'orders', raffle_id: null, orderId: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  /** Limpia el panel/modal de detalle sin navegar (p. ej. cuando la URL ya no trae `orderId`). */
+  private resetDetailPanelState(): void {
+    this.ticketQrOpen.set(false);
+    this.detailOpen.set(false);
+    this.detailError.set(null);
+    this.orderDetail.set(null);
+    this.reviewNotes.setValue('');
+    this.rejectConfirmOpen.set(false);
+    this.deleteConfirmOpen.set(false);
+    this.orderPendingDelete.set(null);
+  }
+
+  /** Query params de la vista órdenes (conserva `raffle_id` al abrir/cerrar detalle). */
+  private buildOrdersViewQuery(over: { orderId?: number | null } = {}): Record<string, string | number | null> {
+    const q: Record<string, string | number | null> = { view: 'orders' };
+    const rid = this.filterRaffleId();
+    if (rid != null) q['raffle_id'] = rid;
+    if ('orderId' in over) {
+      q['orderId'] = over.orderId == null || over.orderId === undefined ? null : over.orderId;
+    }
+    return q;
+  }
+
   ngOnInit(): void {
-    this.refreshStatusCounts();
-    this.reloadFromStart();
     if (this.isAdmin()) this.loadOrderBlockStatus();
   }
 
-  /** Conteos globales (chart admin) + badges de pestañas. */
+  /** Conteos del chart y badges: por `filterRaffleId` o sin filtrar. */
   refreshStatusCounts(): void {
     this.statusCountsLoading.set(true);
+    this.chartInsightsLoaded.set(false);
     this.chartsService
-      .ordersDistribution()
+      .ordersDistribution(this.filterRaffleId())
       .pipe(
         catchError(() =>
           of({
@@ -377,36 +653,48 @@ export class OrdersComponent implements OnInit {
 
   onSearchInput(term: string): void {
     this.searchTerm.set(term);
+    if (this.filterRaffleId() == null) return;
+    this.orderSearchDebounce$.next();
   }
 
   clearSearch(): void {
+    const had = this.searchTerm().trim() !== '';
     this.searchTerm.set('');
+    if (had && this.filterRaffleId() != null) {
+      this.reloadFromStart();
+    }
   }
 
   /** Primera página (o tras cambiar filtro / recargar). Si `refreshStats`, actualiza conteos del gráfico y badges. */
   reloadFromStart(options?: { refreshStats?: boolean }): void {
+    if (this.filterRaffleId() == null) return;
     this.listRequestGeneration += 1;
+    this.nextOrdersScrollLoadAllowedAt = 0;
     this.clearBulkSelection();
     const gen = this.listRequestGeneration;
     this.loading.set(true);
+    // Anula cualquier append en curso y evita solapar con la nueva primera página.
     this.loadingMore.set(false);
     this.error.set(null);
     this.ordersService
-      .listOrders(1, this.perPage(), this.statusFilter() || null)
+      .listOrders(1, this.perPage(), this.statusFilter() || null, this.filterRaffleId(), this.ordersApiSearch())
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (res) => {
           if (gen !== this.listRequestGeneration) return;
-          this.orderGroups.set(orderGroupsFromPaginatedOrdersResponse(res));
-          this.lastLoadedPage.set(res.current_page ?? 1);
-          this.lastPage.set(res.last_page ?? 1);
-          this.perPage.set(res.per_page ?? 25);
-          this.total.set(res.total ?? 0);
+          this.orderList.set(ordersFlatFromPaginatedResponse(res));
+          // El API a veces devuelve `current_page` / `last_page` como string; evitar "1" + 1 === "11".
+          const page = Math.max(1, Number(res.current_page ?? 1) || 1);
+          const lastP = Math.max(1, Number(res.last_page ?? 1) || 1);
+          this.lastLoadedPage.set(page);
+          this.lastPage.set(lastP);
+          this.perPage.set(Math.max(1, Number(res.per_page ?? 25) || 25));
+          this.total.set(Math.max(0, Number(res.total ?? 0) || 0));
           if (options?.refreshStats) this.refreshStatusCounts();
         },
         error: (err) => {
           if (gen !== this.listRequestGeneration) return;
-          this.orderGroups.set([]);
+          this.orderList.set([]);
           this.lastLoadedPage.set(0);
           this.error.set(
             String(err?.error?.message || err?.error?.detail || 'No fue posible cargar los pedidos.'),
@@ -415,53 +703,111 @@ export class OrdersComponent implements OnInit {
       });
   }
 
-  loadNextPage(): void {
-    if (!this.hasMore() || this.loading() || this.loadingMore()) return;
+  /**
+   * Pide la siguiente página (una sola petición a la vez vía `exhaustMap` en `loadMoreRequests$`).
+   */
+  private requestNextOrdersPage(): void {
+    this.loadMoreRequests$.next();
+  }
+
+  /**
+   * Cadena una sola petición HTTP; no se inicia otra hasta terminar merge y estado.
+   * Tras el merge no se pide otra página automáticamente: evita encadenar varias
+   * respuestas mientras el scroll sigue “al fondo” y se mezclan bloques de bancos
+   * antes de que el listado asiente; la siguiente carga va solo con scroll del usuario.
+   */
+  private appendNextOrdersPage$(): Observable<unknown> {
+    if (this.filterRaffleId() == null) return EMPTY;
+    if (this.loading()) return EMPTY;
+    if (!this.hasMore()) return EMPTY;
+
     const gen = this.listRequestGeneration;
     const nextPage = this.lastLoadedPage() + 1;
     this.loadingMore.set(true);
-    this.ordersService
-      .listOrders(nextPage, this.perPage(), this.statusFilter() || null)
-      .pipe(finalize(() => this.loadingMore.set(false)))
-      .subscribe({
-        next: (res) => {
-          if (gen !== this.listRequestGeneration) return;
-          const incoming = orderGroupsFromPaginatedOrdersResponse(res);
-          this.orderGroups.set(mergeOrderBankGroups(this.orderGroups(), incoming));
-          this.lastLoadedPage.set(res.current_page ?? nextPage);
-          this.lastPage.set(res.last_page ?? this.lastPage());
-          this.perPage.set(res.per_page ?? this.perPage());
-          this.total.set(res.total ?? this.total());
-        },
-        error: (err) => {
-          if (gen !== this.listRequestGeneration) return;
-          this.toast.error(
-            String(err?.error?.message || err?.error?.detail || 'No se pudieron cargar más pedidos.'),
-          );
-        },
-      });
+
+    return this.ordersService
+      .listOrders(
+        nextPage,
+        this.perPage(),
+        this.statusFilter() || null,
+        this.filterRaffleId(),
+        this.ordersApiSearch(),
+      )
+      .pipe(
+        tap({
+          next: (res) => {
+            if (gen !== this.listRequestGeneration) return;
+            // El API a veces devuelve `current_page` como string; evitar 2 !== "2".
+            const gotPage = Number(res.current_page ?? nextPage);
+            if (Number.isFinite(gotPage) && Number.isFinite(nextPage) && gotPage !== nextPage) {
+              return;
+            }
+            const incoming = ordersFlatFromPaginatedResponse(res);
+            this.orderList.set(mergeOrderPages(this.orderList(), incoming));
+            const p = Math.max(1, Number(res.current_page ?? nextPage) || nextPage);
+            const lastP = Math.max(1, Number(res.last_page ?? this.lastPage()) || this.lastPage());
+            this.lastLoadedPage.set(p);
+            this.lastPage.set(lastP);
+            this.perPage.set(Math.max(1, Number(res.per_page ?? this.perPage()) || this.perPage()));
+            this.total.set(Math.max(0, Number(res.total ?? this.total()) || this.total()));
+          },
+          error: (err) => {
+            if (gen !== this.listRequestGeneration) return;
+            this.toast.error(
+              String(err?.error?.message || err?.error?.detail || 'No se pudieron cargar más pedidos.'),
+            );
+          },
+        }),
+        finalize(() => {
+          // Deja de marcar "cargando" tras pintar, no en el mismo tick del merge, para
+          // que otra petición no arranque antes de que asienten filas y agrupaciones.
+          if (!isPlatformBrowser(this.platformId)) {
+            this.loadingMore.set(false);
+            this.nextOrdersScrollLoadAllowedAt = Date.now() + OrdersComponent.ORDERS_SCROLL_LOAD_COOLDOWN_MS;
+            return;
+          }
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              this.loadingMore.set(false);
+              this.nextOrdersScrollLoadAllowedAt =
+                Date.now() + OrdersComponent.ORDERS_SCROLL_LOAD_COOLDOWN_MS;
+            });
+          });
+        }),
+      );
   }
 
   onOrdersScroll(ev: Event): void {
+    if (this.loading() || this.loadingMore()) return;
+    if (Date.now() < this.nextOrdersScrollLoadAllowedAt) return;
     const el = ev.target as HTMLElement;
     const threshold = 200;
     if (el.scrollHeight - el.scrollTop - el.clientHeight > threshold) return;
-    this.loadNextPage();
+    this.requestNextOrdersPage();
   }
 
   openDetail(order: Order): void {
+    this.orderDetail.set(order);
+    this.detailError.set(null);
+    if (order.admin_notes) {
+      this.reviewNotes.setValue(order.admin_notes);
+    } else {
+      this.reviewNotes.setValue('');
+    }
     void this.router.navigate(['/dashboard'], {
-      queryParams: { view: 'orders', orderId: order.id },
+      queryParams: this.buildOrdersViewQuery({ orderId: order.id }),
       replaceUrl: true,
     });
   }
 
   private loadOrderDetail(id: number): void {
     this.detailError.set(null);
-    this.reviewNotes.setValue('');
     this.detailOpen.set(true);
     this.detailLoading.set(true);
-    this.orderDetail.set(null);
+    if (this.orderDetail()?.id !== id) {
+      this.orderDetail.set(null);
+      this.reviewNotes.setValue('');
+    }
     this.ordersService
       .getOrder(id)
       .pipe(finalize(() => this.detailLoading.set(false)))
@@ -480,16 +826,9 @@ export class OrdersComponent implements OnInit {
 
   closeDetail(): void {
     if (this.reviewing() || this.deleting()) return;
-    this.ticketQrOpen.set(false);
-    this.detailOpen.set(false);
-    this.detailError.set(null);
-    this.orderDetail.set(null);
-    this.reviewNotes.setValue('');
-    this.rejectConfirmOpen.set(false);
-    this.deleteConfirmOpen.set(false);
-    this.orderPendingDelete.set(null);
+    this.resetDetailPanelState();
     void this.router.navigate(['/dashboard'], {
-      queryParams: { view: 'orders', orderId: null },
+      queryParams: this.buildOrdersViewQuery({ orderId: null }),
       replaceUrl: true,
     });
   }
@@ -636,7 +975,6 @@ export class OrdersComponent implements OnInit {
       `Estado: ${orderStatusLabelEs(d.status)}`,
       `Rifa: ${d.raffle?.title ?? '—'}`,
       (d.bank_name ?? '').trim() ? `Banco: ${d.bank_name}` : '',
-      `Cédula: ${d.cedula || '—'}`,
       this.orderShareUrl(d) ? `Enlace: ${this.orderShareUrl(d)}` : '',
     ].filter((x) => x.length > 0);
     this.clipboard.copy(lines.join('\n'));
@@ -685,20 +1023,30 @@ export class OrdersComponent implements OnInit {
   }
 
   ordersTableColspan(): number {
-    return this.isAdmin() ? 12 : 11;
+    return this.isAdmin() ? 10 : 9;
   }
 
   ordersMobileColspan(): number {
-    return this.isAdmin() ? 6 : 5;
+    return this.isAdmin() ? 5 : 4;
   }
 
-  /** Etiqueta de banco en tabla (API o grupo). */
-  orderBankDisplay(order: Order, groupBankName: string): string {
-    const fromOrder = String(order.bank_name ?? '').trim();
-    if (fromOrder) return fromOrder;
-    const g = String(groupBankName ?? '').trim();
-    if (g && g !== 'Pedidos') return g;
+  /** Título de rifa en tablas: API, título del filtro activo o `Rifa #id`. */
+  orderRaffleLabel(order: Order): string {
+    const t = String(order.raffle?.title ?? '').trim();
+    if (t) return t;
+    const rid = Number(order.raffle_id);
+    if (this.filterRaffleId() === rid) {
+      const ft = String(this.raffleFilterTitle() ?? '').trim();
+      if (ft) return ft;
+    }
+    if (Number.isFinite(rid) && rid > 0) return `Rifa #${rid}`;
     return '—';
+  }
+
+  /** Etiqueta de banco en tabla (solo campo del pedido). */
+  orderBankDisplay(order: Order): string {
+    const fromOrder = String(order.bank_name ?? '').trim();
+    return fromOrder || '—';
   }
 
   clearBulkSelection(): void {
@@ -798,7 +1146,7 @@ export class OrdersComponent implements OnInit {
             this.reviewNotes.setValue('');
             this.rejectConfirmOpen.set(false);
             void this.router.navigate(['/dashboard'], {
-              queryParams: { view: 'orders', orderId: null },
+              queryParams: this.buildOrdersViewQuery({ orderId: null }),
               replaceUrl: true,
             });
           }
@@ -865,7 +1213,7 @@ export class OrdersComponent implements OnInit {
             this.reviewNotes.setValue('');
             this.rejectConfirmOpen.set(false);
             void this.router.navigate(['/dashboard'], {
-              queryParams: { view: 'orders', orderId: null },
+              queryParams: this.buildOrdersViewQuery({ orderId: null }),
               replaceUrl: true,
             });
           }

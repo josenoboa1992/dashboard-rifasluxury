@@ -25,10 +25,13 @@ export interface Raffle {
   digit_count: number;
   status: string;
   starts_at: string;
-  ends_at: string;
-  draw_at: string;
+  /** Puede estar vacío o ausente mientras la venta sigue sin fecha de cierre definida. */
+  ends_at?: string | null;
+  draw_at?: string | null;
   /** Si el público puede ver qué tickets siguen disponibles. */
   show_available_tickets?: boolean;
+  /** Si la API pública debe devolver `ends_at`; si es false se guarda la fecha igual y solo el JSON público envía ends_at null. */
+  show_ends_at?: boolean;
   /** Cantidad de boletos vendidos (listado admin). */
   tickets_sold_count?: number;
   tickets_available_count?: number;
@@ -65,6 +68,7 @@ export interface RafflePayload {
   ends_at?: string;
   draw_at?: string;
   show_available_tickets: boolean;
+  show_ends_at: boolean;
 }
 
 export interface PaginatedAvailableTicketsResponse {
@@ -278,6 +282,9 @@ export class RafflesService {
     }
     if (payload.show_available_tickets !== undefined) {
       formData.set('show_available_tickets', payload.show_available_tickets ? '1' : '0');
+    }
+    if (payload.show_ends_at !== undefined) {
+      formData.set('show_ends_at', payload.show_ends_at ? '1' : '0');
     }
 
     return this.http.post<Raffle>(

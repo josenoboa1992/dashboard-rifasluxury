@@ -13,6 +13,18 @@
   margin-bottom: 1.35rem;
 }
 
+.page-head__lead {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.page-head__titles {
+  min-width: 0;
+}
+
 .page-head h1 {
   margin: 0;
   font-size: 1.65rem;
@@ -25,6 +37,177 @@
   margin: 0.25rem 0 0;
   font-size: 0.9rem;
   color: #5c6370;
+}
+
+.orders-raffle-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.9rem;
+  background: linear-gradient(120deg, rgb(4 5 122 / 0.07), rgb(4 5 122 / 0.03));
+  border: 1px solid rgb(4 5 122 / 0.18);
+  border-radius: 0.7rem;
+}
+
+.orders-raffle-filter-bar__text {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #2d3a4d;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.orders-raffle-filter-bar__icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  font-size: 22px;
+  color: #04057a;
+}
+
+.orders-raffle-filter-bar__title {
+  font-weight: 800;
+  color: #04057a;
+  letter-spacing: -0.02em;
+}
+
+.orders-raffle-filter-bar__id {
+  font-weight: 600;
+  color: #6a7284;
+  font-size: 0.85rem;
+  margin-left: 0.15rem;
+}
+
+.orders-raffle-filter-bar__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.orders-raffle-filter-bar__back mat-icon {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+}
+
+/* Selector de rifa: misma disposición que el listado de Rifas (tabla + barra + paginación) */
+.orders-raffle-picker {
+  margin-bottom: 1rem;
+  max-width: 100%;
+}
+
+.orders-raffle-picker__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #b0b8c8!important;
+  letter-spacing: -0.02em;
+}
+
+.orders-raffle-picker__hint {
+  margin: 0 0 0.9rem;
+  font-size: 0.9rem;
+  color: #5c6370;
+  max-width: 48rem;
+  line-height: 1.45;
+}
+
+.orders-raffle-picker .search input,
+.orders-raffle-picker .status-filter {
+  border: 1px solid #d9deea;
+  border-radius: 0.55rem;
+  padding: 0.52rem 0.65rem;
+  background: #fff;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.orders-raffle-picker__table-wrap {
+  min-width: 0;
+  overflow: auto;
+}
+
+.orders-raffle-picker__table-wrap .table {
+  min-width: 860px;
+}
+
+/*
+ * El listado de rifas en Órdenes no debe mostrar “Acciones” (solo aplica en Rifas).
+ * Si el navegador aún tiene un bundle viejo con esa columna, la ocultamos sin afectar
+ * el maquetado actual (10 columnas: no hay 11.º hijo).
+ */
+.orders-raffle-picker__table-wrap .table thead th:nth-child(11),
+.orders-raffle-picker__table-wrap .table tbody td:nth-child(11) {
+  display: none;
+}
+
+.orders-raffle-picker__table-wrap .row-actions {
+  display: none !important;
+}
+
+.orders-raffle-picker__row--clickable {
+  cursor: pointer;
+}
+
+.orders-raffle-picker__row--clickable:hover {
+  background: rgba(4, 5, 122, 0.04);
+}
+
+.orders-raffle-picker .raffle-avatar {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid #d9deea;
+  background: #f8f9fc;
+  display: block;
+}
+
+.orders-raffle-picker .avatar-fallback {
+  color: #71788a;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.orders-raffle-picker__loading-cell {
+  text-align: center;
+  font-weight: 600;
+  color: #5c6370;
+  padding: 1.5rem 0.75rem !important;
+  vertical-align: middle;
+}
+.orders-raffle-picker__loading-cell app-spinner,
+.orders-raffle-picker__loading-cell span {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+.orders-raffle-picker__loading-cell span {
+  margin-left: 0.5rem;
+}
+
+.orders-raffle-picker__pagination {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  margin-top: 0.95rem;
+  flex-wrap: wrap;
+}
+
+.orders-raffle-picker__pagination .active-page {
+  background: #1b2a4a;
+  color: #fff;
+  border-color: #1b2a4a;
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, #f80203 0%, #c90203 100%);
+  color: #fff;
 }
 
 .panel {
@@ -178,19 +361,206 @@
   margin-bottom: 0;
 }
 
-.orders-insights__empty,
-.orders-insights__skeleton {
+.orders-insights__empty {
   margin: 0.5rem 0 0;
   font-size: 0.86rem;
   color: #6a7284;
   font-weight: 600;
 }
 
-.orders-insights__skeleton {
+.orders-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes orders-insights-shimmer {
+  0% {
+    background-position: 130% 0;
+  }
+  100% {
+    background-position: -130% 0;
+  }
+}
+
+.orders-insights__sk-shimmer-fill {
+  background: linear-gradient(90deg, #dce1ea 0%, #e8ecf2 32%, #f2f4f8 50%, #e8ecf2 68%, #dce1ea 100%);
+  background-size: 240% 100%;
+  animation: orders-insights-shimmer 1.45s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orders-insights__sk-shimmer-fill {
+    animation: none;
+    background: #e0e4ec;
+  }
+}
+
+.orders-insights__chart-skel {
+  margin-top: 0.15rem;
+  min-height: 8rem;
+}
+
+.orders-insights__chart-skel-layout {
+  margin-top: 0.25rem;
+}
+
+.orders-insights__sk-donut-wrap {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  max-width: min(132px, 42vw);
+  max-height: min(132px, 42vw);
+  flex-shrink: 0;
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+
+.orders-insights__sk-donut-ring {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.05);
+}
+
+.orders-insights__sk-donut-ring--tone.orders-insights__sk-shimmer-fill {
+  background: linear-gradient(90deg, #cdd2de 0%, #d8dce6 35%, #e8ecf4 50%, #d8dce6 65%, #cdd2de 100%);
+  background-size: 240% 100%;
+}
+
+.orders-insights__sk-donut-center {
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow:
+    inset 0 0 0 1px #e6e8ed,
+    0 2px 8px rgb(4 5 122 / 0.06);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.orders-insights__sk-pill {
+  display: block;
+  border-radius: 0.3rem;
+}
+
+.orders-insights__sk-pill--val {
+  width: 3.35rem;
+  height: 0.82rem;
+}
+
+.orders-insights__sk-pill--sub {
+  width: 4.1rem;
+  height: 0.48rem;
+}
+
+.orders-insights__sk-pill.orders-insights__sk-shimmer-fill {
+  min-height: 0;
+}
+
+.orders-insights__sk-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.orders-insights__sk-legend-item {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  padding: 1rem 0;
+  gap: 0.45rem;
+}
+
+.orders-insights__sk-swatch {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 0.14rem;
+  flex-shrink: 0;
+}
+
+.orders-insights__sk-bar {
+  flex: 1;
+  height: 0.68rem;
+  border-radius: 0.22rem;
+  min-width: 0;
+}
+
+.orders-insights__sk-num {
+  width: 2.6rem;
+  height: 0.72rem;
+  border-radius: 0.22rem;
+  flex-shrink: 0;
+}
+
+.orders-insights__tabs-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.15rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.orders-insights__tabs-skel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  padding: 0.42rem 0.55rem;
+  border-radius: 0.55rem;
+  background: rgb(255 255 255 / 0.55);
+  border: 1px solid #e0e5ee;
+}
+
+.orders-insights__tabs-skel-label {
+  flex: 1;
+  height: 0.72rem;
+  max-width: 68%;
+  border-radius: 0.22rem;
+}
+
+.orders-insights__tabs-skel-badge {
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.orders-insights__sk-swatch,
+.orders-insights__sk-bar,
+.orders-insights__sk-num,
+.orders-insights__tabs-skel-label,
+.orders-insights__tabs-skel-badge {
+  background: linear-gradient(90deg, #dce1ea 0%, #e8ecf2 32%, #f2f4f8 50%, #e8ecf2 68%, #dce1ea 100%);
+  background-size: 240% 100%;
+  animation: orders-insights-shimmer 1.45s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orders-insights__sk-swatch,
+  .orders-insights__sk-bar,
+  .orders-insights__sk-num,
+  .orders-insights__tabs-skel-label,
+  .orders-insights__tabs-skel-badge,
+  .orders-insights__sk-donut-ring--tone,
+  .orders-insights__sk-shimmer-fill {
+    animation: none !important;
+    background: #e0e4ec !important;
+  }
 }
 
 .orders-chart-layout {
@@ -436,7 +806,7 @@
   display: none !important;
 }
 
-/* Tabla compacta móvil (sin scroll horizontal): ID, cliente, cantidad, estado, acción */
+/* Tabla compacta móvil (sin scroll horizontal): checkbox admin, ID, cliente, cant., estado (sin columna rifa) */
 .orders-table-mobile {
   width: 100%;
   max-width: 100%;
@@ -492,8 +862,22 @@
 }
 
 .orders-table-mobile__col-cliente {
-  width: 27%;
+  width: 38%;
   min-width: 0;
+}
+
+.cell-raffle {
+  max-width: 12rem;
+  min-width: 0;
+}
+
+.cell-raffle__text {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 
 .orders-table-mobile__qty {
@@ -789,6 +1173,63 @@
     overflow-x: hidden;
     padding: 0.15rem 0 0;
     background: #fafbfc;
+  }
+
+  /* “Rifas disponibles”: en móvil solo ID, imagen, título y estado (sin precio, meta, ventas, fechas). */
+  .orders-raffle-picker__table-wrap {
+    overflow-x: hidden;
+  }
+
+  .orders-raffle-picker__table-wrap .table {
+    min-width: 0;
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .orders-raffle-picker__table-wrap .table thead th:nth-child(n + 5),
+  .orders-raffle-picker__table-wrap .table tbody td:nth-child(n + 5) {
+    display: none;
+  }
+
+  /* Cabeceras legibles: sin nowrap forzado y algo de aire entre columnas. */
+  .orders-raffle-picker__table-wrap .table thead th {
+    font-size: 0.6rem;
+    letter-spacing: 0.03em;
+    padding: 0.4rem 0.2rem;
+    white-space: normal;
+    line-height: 1.2;
+    vertical-align: bottom;
+    word-break: break-word;
+    hyphens: auto;
+  }
+
+  .orders-raffle-picker__table-wrap .table thead th:nth-child(1),
+  .orders-raffle-picker__table-wrap .table tbody td:nth-child(1) {
+    width: 11%;
+    max-width: 3.25rem;
+  }
+
+  /* Antes ~2.75rem: “IMAGEN” se encimaba con “TITULO”. */
+  .orders-raffle-picker__table-wrap .table thead th:nth-child(2),
+  .orders-raffle-picker__table-wrap .table tbody td:nth-child(2) {
+    width: 22%;
+    min-width: 4.5rem;
+  }
+
+  .orders-raffle-picker__table-wrap .table thead th:nth-child(4),
+  .orders-raffle-picker__table-wrap .table tbody td:nth-child(4) {
+    width: 26%;
+  }
+
+  /* La columna título ocupa el espacio restante (table-layout: fixed). */
+  .orders-raffle-picker__table-wrap .table tbody td:nth-child(3) {
+    word-break: break-word;
+    hyphens: auto;
+  }
+
+  .orders-raffle-picker__table-wrap .table tbody td:nth-child(2) {
+    text-align: center;
+    vertical-align: middle;
   }
 }
 
@@ -1125,6 +1566,13 @@
 
 .order-detail-sheet__alert {
   margin-bottom: 0.75rem;
+}
+
+.order-detail-sheet__empty {
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.45;
 }
 
 .order-detail-sheet__divider {
@@ -1949,6 +2397,10 @@
   border-top-color: #2d3848 !important;
 }
 
+:host-context(html[data-theme='dark']) .order-detail-sheet__empty {
+  color: #94a3b8;
+}
+
 :host-context(html[data-theme='dark']) .detail-kv__v,
 :host-context(html[data-theme='dark']) .detail-kv__v--nums {
   color: #ffffff !important;
@@ -2134,9 +2586,47 @@
 }
 
 :host-context(html[data-theme='dark']) .orders-insights__title,
-:host-context(html[data-theme='dark']) .orders-insights__empty,
-:host-context(html[data-theme='dark']) .orders-insights__skeleton {
+:host-context(html[data-theme='dark']) .orders-insights__empty {
   color: #b0b8c8 !important;
+}
+
+:host-context(html[data-theme='dark']) .orders-insights__sk-donut-center {
+  background: #1a222c !important;
+  box-shadow:
+    inset 0 0 0 1px #2d3848,
+    0 2px 8px rgb(0 0 0 / 0.2) !important;
+}
+
+:host-context(html[data-theme='dark']) .orders-insights__tabs-skel-row {
+  background: rgb(30 39 52 / 0.65) !important;
+  border-color: #3d4d63 !important;
+}
+
+:host-context(html[data-theme='dark']) .orders-insights__sk-donut-ring--tone.orders-insights__sk-shimmer-fill {
+  background: linear-gradient(90deg, #2d3848 0%, #3d4d63 35%, #4a5d78 50%, #3d4d63 65%, #2d3848 100%) !important;
+  background-size: 240% 100% !important;
+}
+
+:host-context(html[data-theme='dark']) .orders-insights__sk-swatch,
+:host-context(html[data-theme='dark']) .orders-insights__sk-bar,
+:host-context(html[data-theme='dark']) .orders-insights__sk-num,
+:host-context(html[data-theme='dark']) .orders-insights__tabs-skel-label,
+:host-context(html[data-theme='dark']) .orders-insights__tabs-skel-badge,
+:host-context(html[data-theme='dark']) .orders-insights__sk-pill.orders-insights__sk-shimmer-fill {
+  background: linear-gradient(90deg, #2d3848 0%, #3d4d63 32%, #4a5d78 50%, #3d4d63 68%, #2d3848 100%) !important;
+  background-size: 240% 100% !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host-context(html[data-theme='dark']) .orders-insights__sk-swatch,
+  :host-context(html[data-theme='dark']) .orders-insights__sk-bar,
+  :host-context(html[data-theme='dark']) .orders-insights__sk-num,
+  :host-context(html[data-theme='dark']) .orders-insights__tabs-skel-label,
+  :host-context(html[data-theme='dark']) .orders-insights__tabs-skel-badge,
+  :host-context(html[data-theme='dark']) .orders-insights__sk-pill.orders-insights__sk-shimmer-fill,
+  :host-context(html[data-theme='dark']) .orders-insights__sk-donut-ring--tone {
+    background: #2d3848 !important;
+  }
 }
 
 :host-context(html[data-theme='dark']) .orders-chart__center {
@@ -2198,6 +2688,27 @@
 
 :host-context(html[data-theme='dark']) .page-head p {
   color: #9aa0a6 !important;
+}
+
+:host-context(html[data-theme='dark']) .orders-raffle-filter-bar {
+  background: rgb(255 255 255 / 0.05) !important;
+  border-color: #2d3848 !important;
+}
+
+:host-context(html[data-theme='dark']) .orders-raffle-filter-bar__text {
+  color: #e8eaed !important;
+}
+
+:host-context(html[data-theme='dark']) .orders-raffle-filter-bar__icon {
+  color: #a5b4fc !important;
+}
+
+:host-context(html[data-theme='dark']) .orders-raffle-filter-bar__title {
+  color: #c7d2fe !important;
+}
+
+:host-context(html[data-theme='dark']) .orders-raffle-filter-bar__id {
+  color: #9aa3b2 !important;
 }
 
 :host-context(html[data-theme='dark']) .panel {

@@ -15,7 +15,7 @@ export interface OrderRaffleSummary {
 export interface OrderParticipantSummary {
   id: number;
   name: string;
-  cedula: string;
+  cedula?: string | null;
   [key: string]: unknown;
 }
 
@@ -32,6 +32,25 @@ export interface PaymentProofImage {
   [key: string]: unknown;
 }
 
+/**
+ * Cuenta bancaria anidada en el listado/detalle de pedido (Laravel en `data[].bank_account`).
+ * No incluye el mismo cuerpo que el CRUD de cuentas; el API embebe lo necesario.
+ */
+export interface OrderBankAccount {
+  id: number;
+  bank_name: string;
+  account_type?: string;
+  account_number?: string;
+  account_holder_name?: string;
+  holder_id?: string | null;
+  currency?: string;
+  image_id?: number | null;
+  color?: string | null;
+  sort_order?: number;
+  image?: PaymentProofImage | null;
+  [key: string]: unknown;
+}
+
 export interface OrderTicket {
   id: number;
   raffle_id: number;
@@ -41,23 +60,31 @@ export interface OrderTicket {
   [key: string]: unknown;
 }
 
+/**
+ * Modelo alineado con el recurso de pedido en `GET /api/admin/orders` y
+ * `GET /api/admin/raffles/{id}/orders` (Laravel, dentro de `data[]`).
+ */
 export interface Order {
   id: number;
   raffle_id: number;
   user_id: number | null;
   participant_id: number | null;
   customer_name: string;
-  cedula: string;
+  cedula?: string | null;
   phone: string;
   /** Puede venir vacío o null desde el API en algunos pedidos. */
   email: string | null;
+  /** Presente en el listado admin cuando el backend lo expone. */
+  ip_address?: string | null;
   status: string;
   total_amount: string;
-  /** Cantidad de boletos asociados (nuevo en el endpoint). */
+  /** Cantidad de boletos asociados. */
   tickets_count?: number | null;
   bank_account_id: number | null;
-  /** Nombre del banco de la cuenta ligada, o "Otros" si no aplica (listado admin). */
+  /** Nombre descriptivo (denormalizado); también puede resolverse vía `bank_account`. */
   bank_name?: string | null;
+  /** Cuenta bancaria embebida (Laravel) cuando el API la incluye. */
+  bank_account?: OrderBankAccount | null;
   payment_proof_path: string | null;
   payment_proof_image_id: number | null;
   validated_at: string | null;
@@ -78,17 +105,32 @@ export interface OrderBankGroup {
   orders: Order[];
 }
 
+/**
+ * `LengthAwarePaginator` de Laravel: mismo contrato en
+ * `GET /api/admin/orders` y `GET /api/admin/raffles/{id}/orders`.
+ * `data` = página actual de `Order` (a veces con relaciones: `raffle`, `participant`, `bank_account`, `payment_proof_image`).
+ */
 export interface PaginatedOrdersResponse {
   current_page: number;
-  /** Respuesta nueva: pedidos agrupados por banco (misma paginación sobre órdenes). */
-  groups?: OrderBankGroup[];
-  /** Respuesta antigua: lista plana (compatibilidad). */
-  data?: Order[];
+  data: Order[];
+  first_page_url?: string | null;
   from: number | null;
   last_page: number;
+  last_page_url?: string | null;
+  links?: Array<{
+    url: string | null;
+    label: string;
+    active?: boolean;
+    [key: string]: unknown;
+  }>;
+  next_page_url?: string | null;
+  path?: string;
   per_page: number;
+  prev_page_url?: string | null;
   to: number | null;
   total: number;
+  /** @deprecated listado legado por banco; el backend standard usa solo `data` plana. */
+  groups?: OrderBankGroup[];
   [key: string]: unknown;
 }
 
@@ -112,9 +154,21 @@ export function flattenOrderGroups(groups: OrderBankGroup[] | null | undefined):
   return (groups ?? []).flatMap((g) => g.orders ?? []);
 }
 
-/** Una sola lectura de la respuesta paginada admin → pedidos en orden de grupos. */
+/**
+ * Lista plana de pedidos desde el GET admin.
+ * Si el backend manda `groups` pero con `orders` vacíos (o estructura rara) y la lista
+ * real va en `data`, hacemos fallback a `res.data` para no mostrar 0 resultados.
+ */
 export function ordersFlatFromPaginatedResponse(res: PaginatedOrdersResponse): Order[] {
-  return flattenOrderGroups(orderGroupsFromPaginatedOrdersResponse(res));
+  const fromGroups = flattenOrderGroups(orderGroupsFromPaginatedOrdersResponse(res));
+  if (fromGroups.length > 0) {
+    return fromGroups;
+  }
+  const direct = res.data;
+  if (Array.isArray(direct) && direct.length > 0) {
+    return direct as Order[];
+  }
+  return [];
 }
 
 /** Une grupos al cargar más páginas (mismo banco acumula órdenes; sin duplicar id). */
@@ -139,6 +193,19 @@ export function mergeOrderBankGroups(a: OrderBankGroup[], b: OrderBankGroup[]): 
   const out: OrderBankGroup[] = keys.map((name) => ({ bank_name: name, orders: map.get(name)! }));
   if (map.has(OTROS_BANK_LABEL)) {
     out.push({ bank_name: OTROS_BANK_LABEL, orders: map.get(OTROS_BANK_LABEL)! });
+  }
+  return out;
+}
+
+/** Listado plano: une páginas sin reagrupar (evita lógica por banco; el campo `bank_name` en cada pedido basta). */
+export function mergeOrderPages(existing: Order[], incomingFromPage: Order[]): Order[] {
+  const ids = new Set(existing.map((o) => o.id));
+  const out = [...existing];
+  for (const o of incomingFromPage) {
+    if (!ids.has(o.id)) {
+      out.push(o);
+      ids.add(o.id);
+    }
   }
   return out;
 }
@@ -177,19 +244,61 @@ export class OrdersService {
       : new HttpHeaders();
   }
 
+  /**
+   * Listado admin de pedidos (paginador Laravel estándar).
+   * Puede filtrar por `raffle_id` en query o usar {@link listRaffleOrders} para la ruta anidada.
+   */
   listOrders(
     page: number = 1,
     perPage: number = 25,
     status?: string | null,
+    raffleId?: number | null,
+    /** Texto libre; API admin: `GET ...?q=` (hasta 128 chars en servidor). */
+    search?: string | null,
   ): Observable<PaginatedOrdersResponse> {
     let params = new HttpParams().set('page', page).set('per_page', perPage);
     if (status != null && String(status).trim() !== '') {
       params = params.set('status', String(status).trim());
     }
+    if (raffleId != null && Number.isFinite(raffleId) && raffleId > 0) {
+      params = params.set('raffle_id', String(Math.floor(raffleId)));
+    }
+    const q = search != null ? String(search).trim() : '';
+    if (q !== '') {
+      params = params.set('q', q.slice(0, 128));
+    }
     return this.http.get<PaginatedOrdersResponse>(`${environment.apiBaseUrl}/api/admin/orders`, {
       headers: this.authHeaders(),
       params,
     });
+  }
+
+  /**
+   * `GET /api/admin/raffles/{id}/orders` — mismo cuerpo paginado que `listOrders`
+   * (Laravel: `data`, `current_page`, `last_page`, `path`, `links`, etc.).
+   */
+  listRaffleOrders(
+    raffleId: number,
+    page: number = 1,
+    perPage: number = 25,
+    status?: string | null,
+    search?: string | null,
+  ): Observable<PaginatedOrdersResponse> {
+    if (!Number.isFinite(raffleId) || raffleId < 1) {
+      throw new Error('listRaffleOrders: raffleId inválido');
+    }
+    let params = new HttpParams().set('page', page).set('per_page', perPage);
+    if (status != null && String(status).trim() !== '') {
+      params = params.set('status', String(status).trim());
+    }
+    const q = search != null ? String(search).trim() : '';
+    if (q !== '') {
+      params = params.set('q', q.slice(0, 128));
+    }
+    return this.http.get<PaginatedOrdersResponse>(
+      `${environment.apiBaseUrl}/api/admin/raffles/${Math.floor(raffleId)}/orders`,
+      { headers: this.authHeaders(), params },
+    );
   }
 
   getOrder(id: number): Observable<Order> {

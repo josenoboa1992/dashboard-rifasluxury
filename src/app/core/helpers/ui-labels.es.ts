@@ -6,6 +6,8 @@ export function roleLabelEs(role: string | null | undefined): string {
   const map: Record<string, string> = {
     admin: 'Administrador',
     user: 'Usuario',
+    support: 'Soporte',
+    soporte: 'Soporte',
   };
   return map[k] ?? String(role);
 }
